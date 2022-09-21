@@ -26,7 +26,7 @@ app=dash.Dash(__name__, suppress_callback_exceptions=True,external_stylesheets=[
     }])
 
 source_adj=pathlib.Path(__file__).parent.resolve()
-rsi_adjustable=pd.read_csv('{0}/data_base/RSIADJUST.csv'.format(source_adj))
+rsi_adjustable=pd.read_csv('{0}/datasets/RSIADJUST.csv'.format(source_adj))
 RSI_TO_BUY=float(rsi_adjustable['RSI_TO_BUY'][0])
 RSI_TO_SELL=float(rsi_adjustable['RSI_TO_SELL'][0])
 T_SELL = RSI_TO_SELL-5
@@ -35,7 +35,7 @@ st='A'
 companies = []
 click_counter = [0,0,0,0]
 source=pathlib.Path(__file__).parent.resolve()
-df=pd.read_csv('{0}/data_base/STOCKS.csv'.format(source))
+df=pd.read_csv('{0}/datasets/STOCKS.csv'.format(source))
 for stock in df.values:
     companies.append(stock[0])
 companies = list(set(companies))
@@ -49,10 +49,10 @@ companies.sort()
 def change_dashboard_page(clicks_md, clicks_wl1, clicks_wl2,clicks_wl3,clicks_mav):
     global RSI_TO_SELL, RSI_TO_BUY, T_BUY, T_SELL
     source=pathlib.Path(__file__).parent.resolve()
-    df=pd.read_csv('{0}/data_base/AA.csv'.format(source))
+    df=pd.read_csv('{0}/datasets/AA.csv'.format(source))
     df = filter_by_options(df,[True,True,True])
     if clicks_wl1:
-        df=pd.read_csv('{0}/data_base/WATCHLIST.csv'.format(source))
+        df=pd.read_csv('{0}/datasets/WATCHLIST.csv'.format(source))
         df = filter_by_options(df,[True,True,True])
         wl_df=[]
         for stock in companies:
@@ -64,12 +64,12 @@ def change_dashboard_page(clicks_md, clicks_wl1, clicks_wl2,clicks_wl3,clicks_ma
         df=wl_df
         return watchlist1_dashboard(), render_wl1_table(df),0,0,0,0,0
     elif clicks_wl2:
-        df=pd.read_csv('{0}/data_base/WATCHLIST2.csv'.format(source))
+        df=pd.read_csv('{0}/datasets/WATCHLIST2.csv'.format(source))
         df = filter_by_options(df,[True,True,True])
         return watchlist2_dashboard(), render_wl2_table(df),0,0,0,0,0
     elif clicks_wl3:
         print("IN W3")
-        df=pd.read_csv('{0}/data_base/TOTALUNIVERSE.csv'.format(source))
+        df=pd.read_csv('{0}/datasets/TOTALUNIVERSE.csv'.format(source))
         return watchlist3_dashboard(), render_totals_table(df),0,0,0,0,0
     elif clicks_mav:
         pass
@@ -99,10 +99,10 @@ def remove_or_add_new_stock(add, remove, add_date, stock_to_add,stock_to_remove)
             companies.append(stock)
             companies.sort()
             source=pathlib.Path(__file__).parent.resolve()
-            df.to_csv('{0}/data_base/{1}.csv'.format(source, stock), index=False, float_format='%.2f')
+            df.to_csv('{0}/datasets/{1}.csv'.format(source, stock), index=False, float_format='%.2f')
             df = pd.DataFrame(companies)
             source=pathlib.Path(__file__).parent.resolve()
-            df.to_csv('{0}/data_base/STOCKS.csv'.format(source), index=False)
+            df.to_csv('{0}/datasets/STOCKS.csv'.format(source), index=False)
 
         except Exception as e:
             print(type(e))
@@ -131,10 +131,10 @@ def remove_or_add_new_stock(add, remove, add_date, stock_to_add,stock_to_remove)
         click_counter[0]=remove
         companies.remove(stock_to_remove)
         source=pathlib.Path(__file__).parent.resolve()
-        os.remove('{0}/data_base/{1}.csv'.format(source, stock_to_remove))
+        os.remove('{0}/datasets/{1}.csv'.format(source, stock_to_remove))
         companies.sort()
         df= pd.DataFrame(companies)
-        df.to_csv('{0}/data_base/STOCKS.csv'.format(source), index=False)
+        df.to_csv('{0}/datasets/STOCKS.csv'.format(source), index=False)
     return fake, companies , companies,'', ''
 
 @app.callback(
@@ -174,11 +174,11 @@ def adjust_rsi(n_clicks, rsell,rbuy):
         print('entering conditional')
         click_counter[3]=n_clicks
         source=pathlib.Path(__file__).parent.resolve()
-        df_rs=pd.read_csv('{0}/data_base/RSIADJUST.csv'.format(source))
+        df_rs=pd.read_csv('{0}/datasets/RSIADJUST.csv'.format(source))
         df_rs['RSI_TO_BUY'] = rbuy
         df_rs['RSI_TO_SELL'] = rsell
         print(df_rs)
-        df_rs.to_csv('{0}/data_base/RSIADJUST.csv'.format(source), index=False, float_format='%.2f')
+        df_rs.to_csv('{0}/datasets/RSIADJUST.csv'.format(source), index=False, float_format='%.2f')
         RSI_TO_BUY=float(rbuy)
         RSI_TO_SELL=float(rsell)
         T_SELL = RSI_TO_SELL-5
@@ -192,7 +192,7 @@ def adjust_rsi(n_clicks, rsell,rbuy):
         for symbol in tmp_companies:
             progress=round((counter/size)*100, 2)
             print('{0}% updating {1} data...'.format(str(progress),symbol))
-            df=pd.read_csv('{0}/data_base/{1}.csv'.format(source, symbol))
+            df=pd.read_csv('{0}/datasets/{1}.csv'.format(source, symbol))
             if max_date == None:
                 max_date=df['Date'].head(1)[0]
             else:
@@ -203,7 +203,7 @@ def adjust_rsi(n_clicks, rsell,rbuy):
                 (df['RSI']>=RSI_TO_BUY) & (df['RSI']<=RSI_TO_SELL)]
             values = ['BUY', 'SELL', 'HOLD']
             df['STATUS'] = np.select(conditions, values)
-            df.to_csv('{0}/data_base/{1}.csv'.format(source, symbol), index=False, float_format='%.2f')
+            df.to_csv('{0}/datasets/{1}.csv'.format(source, symbol), index=False, float_format='%.2f')
             dftmp = df[(df['RSI'] <= T_BUY) & (df['RSI']>=RSI_TO_BUY) | ((df['RSI']<=RSI_TO_SELL) & (df['RSI']>=T_SELL))]
             if len(df_watchlist) == 0:
                 print('{0}% updating {1} data...'.format(str(progress),'WATCHLIST'))
@@ -216,8 +216,8 @@ def adjust_rsi(n_clicks, rsell,rbuy):
             counter+=1
         df_watchlist = df_watchlist[df_watchlist['Date']==max_date]
         df_watchlist2 = df_watchlist2[df_watchlist2['Date']==max_date]
-        df_watchlist.to_csv('{0}/data_base/WATCHLIST.csv'.format(source), index=False, float_format='%.2f')
-        df_watchlist2.to_csv('{0}/data_base/WATCHLIST2.csv'.format(source), index=False, float_format='%.2f')
+        df_watchlist.to_csv('{0}/datasets/WATCHLIST.csv'.format(source), index=False, float_format='%.2f')
+        df_watchlist2.to_csv('{0}/datasets/WATCHLIST2.csv'.format(source), index=False, float_format='%.2f')
             
     return html.Div([])
 
@@ -239,7 +239,7 @@ def toggle_modal_adjust(open_modal,close_modal,adj_modal, is_open):
 Output('fakeOutput', 'children'),
 Input('update-data','n_clicks'), Input('update-date-picker', 'date')
 )
-def update_data_base(n_clicks, up_date):
+def update_datasets(n_clicks, up_date):
     global RSI_TO_SELL, RSI_TO_BUY, T_BUY, T_SELL, companies
     print(date)
     if n_clicks>click_counter[2]:
@@ -258,7 +258,7 @@ def update_data_base(n_clicks, up_date):
         'Loss 12% SB', 'Below RSI A',
         'Below RSI B'])
         source=pathlib.Path(__file__).parent.resolve()
-        df_watchlist3.to_csv('{0}/data_base/TOTALUNIVERSE.csv'.format(source), index=False, float_format='%.2f')
+        df_watchlist3.to_csv('{0}/datasets/TOTALUNIVERSE.csv'.format(source), index=False, float_format='%.2f')
         for symbol in companies:
             progress=round((counter/size)*100, 2)
             print('{0}% updating {1} data...'.format(str(progress),symbol))
@@ -269,7 +269,7 @@ def update_data_base(n_clicks, up_date):
                 max_date = max(max_date,df['Date'].head(1)[0])
             print(max_date)
             source=pathlib.Path(__file__).parent.resolve()
-            df.to_csv('{0}/data_base/{1}.csv'.format(source, symbol), index=False, float_format='%.2f')
+            df.to_csv('{0}/datasets/{1}.csv'.format(source, symbol), index=False, float_format='%.2f')
             df['Stock'] = symbol
             dftmp = df[(df['RSI'] <= T_BUY) & (df['RSI']>=RSI_TO_BUY) | ((df['RSI']<=RSI_TO_SELL) & (df['RSI']>=T_SELL))]
             if len(df_watchlist) == 0:
@@ -292,9 +292,9 @@ def update_data_base(n_clicks, up_date):
             counter+=1
         df_watchlist = df_watchlist[df_watchlist['Date']==max_date]
         df_watchlist2 = df_watchlist2[df_watchlist2['Date']==max_date]
-        df_watchlist.to_csv('{0}/data_base/WATCHLIST.csv'.format(source), index=False, float_format='%.2f')
-        df_watchlist2.to_csv('{0}/data_base/WATCHLIST2.csv'.format(source), index=False, float_format='%.2f')
-        df_moving_average.to_csv('{0}/data_base/MOVINGAVERAGE.csv'.format(source), index=False, float_format='%.2f')
+        df_watchlist.to_csv('{0}/datasets/WATCHLIST.csv'.format(source), index=False, float_format='%.2f')
+        df_watchlist2.to_csv('{0}/datasets/WATCHLIST2.csv'.format(source), index=False, float_format='%.2f')
+        df_moving_average.to_csv('{0}/datasets/MOVINGAVERAGE.csv'.format(source), index=False, float_format='%.2f')
     return html.Div([])
 
 
@@ -308,7 +308,7 @@ def update_wl2_table(comp):
     global RSI_TO_SELL, RSI_TO_BUY, T_BUY, T_SELL
     print(comp)
     source=pathlib.Path(__file__).parent.resolve()
-    df=pd.read_csv('{0}/data_base/WATCHLIST2.csv'.format(source))
+    df=pd.read_csv('{0}/datasets/WATCHLIST2.csv'.format(source))
     df = filter_by_options(df,[True,True,True])
     wl_df = []
     for stock in companies:
@@ -335,7 +335,7 @@ def update_wl1_table(comp):
     global RSI_TO_SELL, RSI_TO_BUY, T_BUY, T_SELL
     print(comp)
     source=pathlib.Path(__file__).parent.resolve()
-    df=pd.read_csv('{0}/data_base/WATCHLIST.csv'.format(source))
+    df=pd.read_csv('{0}/datasets/WATCHLIST.csv'.format(source))
     df = filter_by_options(df,[True,True,True])
     wl_df = []
     for stock in companies:
@@ -367,7 +367,7 @@ def update_table(comp, options):
     for o in options:
         outops[o-1] = True
     source=pathlib.Path(__file__).parent.resolve()
-    df=pd.read_csv('{0}/data_base/{1}.csv'.format(source, comp))
+    df=pd.read_csv('{0}/datasets/{1}.csv'.format(source, comp))
     df = filter_by_options(df,outops)
     rsi_records_data=df.to_dict('records')
     rsi_values_columns=[{"name": i, "id": i,'type':'numeric', 'format':Format(precision=2,scheme=Scheme.fixed)} if i =='RSI' or i=='Price' else 
@@ -592,7 +592,7 @@ def render_modal_add():
 def render_modal_adjust():
     global RSI_TO_SELL, RSI_TO_BUY, T_BUY, T_SELL
     source=pathlib.Path(__file__).parent.resolve()
-    df=pd.read_csv('{0}/data_base/RSIADJUST.csv'.format(source))
+    df=pd.read_csv('{0}/datasets/RSIADJUST.csv'.format(source))
     br,sr = df.values[0]
     return html.Div(
     [dbc.Modal(
@@ -1059,7 +1059,7 @@ def main():
     print("SELL AND TSELL", RSI_TO_SELL,T_SELL, type(RSI_TO_SELL),type(T_SELL))
     webbrowser.open("http://127.0.0.1:8050/")
     source=pathlib.Path(__file__).parent.resolve()
-    df=pd.read_csv('{0}/data_base/ALL.csv'.format(source))
+    df=pd.read_csv('{0}/datasets/ALL.csv'.format(source))
     df = filter_by_options(df,[True,True,True])
     app.layout=html.Div([
         dbc.Container([dbc.Spinner(children=[dbc.Container([

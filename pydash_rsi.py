@@ -2,7 +2,6 @@ from posixpath import split
 import dash
 from dash import Dash, dash_table, Input, Output, State
 from dash import dcc
-from datetime import date
 from dash import html
 import dash_bootstrap_components as dbc
 import pandas_datareader as pdr
@@ -31,7 +30,7 @@ RSI_TO_BUY=float(rsi_adjustable['RSI_TO_BUY'][0])
 RSI_TO_SELL=float(rsi_adjustable['RSI_TO_SELL'][0])
 T_SELL = RSI_TO_SELL-5
 T_BUY = RSI_TO_BUY+5
-st='A'
+st='B'
 companies = []
 click_counter = [0,0,0,0]
 source=pathlib.Path(__file__).parent.resolve()
@@ -43,10 +42,10 @@ companies.sort()
 
 @app.callback(
     [Output('dashboard-header','children'),Output('dashboard-content','children'),
-    Output('mdpage','n_clicks'),Output('wl1page','n_clicks'),Output('wl2page','n_clicks'),Output('wl3page','n_clicks'),Output('mavpage','n_clicks')],
-    [Input('mdpage','n_clicks'), Input('wl1page','n_clicks'), Input('wl2page','n_clicks'),Input('wl3page','n_clicks'),Input('mavpage','n_clicks')]
+    Output('mdpage','n_clicks'),Output('wl1page','n_clicks'),Output('wl2page','n_clicks')],
+    [Input('mdpage','n_clicks'), Input('wl1page','n_clicks'), Input('wl2page','n_clicks')]
 )
-def change_dashboard_page(clicks_md, clicks_wl1, clicks_wl2,clicks_wl3,clicks_mav):
+def change_dashboard_page(clicks_md, clicks_wl1, clicks_wl2):
     global RSI_TO_SELL, RSI_TO_BUY, T_BUY, T_SELL
     source=pathlib.Path(__file__).parent.resolve()
     df=pd.read_csv('{0}/data_base/AA.csv'.format(source))
@@ -62,18 +61,12 @@ def change_dashboard_page(clicks_md, clicks_wl1, clicks_wl2,clicks_wl3,clicks_ma
             else:
                 wl_df=pd.concat([wl_df,df_tmp])
         df=wl_df
-        return watchlist1_dashboard(), render_wl1_table(df),0,0,0,0,0
+        return watchlist1_dashboard(), render_wl1_table(df),0,0,0
     elif clicks_wl2:
         df=pd.read_csv('{0}/data_base/WATCHLIST2.csv'.format(source))
         df = filter_by_options(df,[True,True,True])
-        return watchlist2_dashboard(), render_wl2_table(df),0,0,0,0,0
-    elif clicks_wl3:
-        print("IN W3")
-        df=pd.read_csv('{0}/data_base/TOTALUNIVERSE.csv'.format(source))
-        return watchlist3_dashboard(), render_totals_table(df),0,0,0,0,0
-    elif clicks_mav:
-        pass
-    return main_dashboard_header(), render_table(df),0,0,0,0,0
+        return watchlist2_dashboard(), render_wl2_table(df),0,0,0
+    return main_dashboard_header(), render_table(df),0,0,0
 
 @app.callback(
     [Output('fakeOutputTest','children'), Output('company-filter', 'options'), Output('remove-dropdown-menu','options'), 
@@ -246,19 +239,9 @@ def update_data_base(n_clicks, up_date):
         click_counter[2]=n_clicks
         df_watchlist=[]
         df_watchlist2=[]
-        df_moving_average = []
         counter=1
         size=len(companies)
         max_date=None
-        
-        df_watchlist3=pd.DataFrame([],columns=['Profit SA',
-        'Losses SA','Profit SB',
-        'Losses SB','Wins 14% SA',
-        'Wins 14% SB','Loss 12% SA',
-        'Loss 12% SB', 'Below RSI A',
-        'Below RSI B'])
-        source=pathlib.Path(__file__).parent.resolve()
-        df_watchlist3.to_csv('{0}/data_base/TOTALUNIVERSE.csv'.format(source), index=False, float_format='%.2f')
         for symbol in companies:
             progress=round((counter/size)*100, 2)
             print('{0}% updating {1} data...'.format(str(progress),symbol))
@@ -280,21 +263,11 @@ def update_data_base(n_clicks, up_date):
                 print('{0}% updating {1} data...'.format(str(progress),'WATCHLIST'))
                 df_watchlist=pd.concat([df_watchlist,dftmp])
                 df_watchlist2=pd.concat([df_watchlist2,df])
-            dfav = df.head(20)
-            dfav['Moving Average'] = sum(dfav['Price'])/20
-            dfav=dfav.drop(['Price','RSI','%','PROFIT','LOSS','STATUS'], axis=1)
-            dfav=dfav.head(1)
-            print(dfav)
-            if len(df_moving_average) == 0:
-                df_moving_average = dfav
-            else:
-                df_moving_average=pd.concat([df_moving_average,dfav], axis=0)
             counter+=1
         df_watchlist = df_watchlist[df_watchlist['Date']==max_date]
         df_watchlist2 = df_watchlist2[df_watchlist2['Date']==max_date]
         df_watchlist.to_csv('{0}/data_base/WATCHLIST.csv'.format(source), index=False, float_format='%.2f')
         df_watchlist2.to_csv('{0}/data_base/WATCHLIST2.csv'.format(source), index=False, float_format='%.2f')
-        df_moving_average.to_csv('{0}/data_base/MOVINGAVERAGE.csv'.format(source), index=False, float_format='%.2f')
     return html.Div([])
 
 
@@ -512,13 +485,7 @@ def rsi(comp, options, up_date, stg):
     global RSI_TO_SELL, RSI_TO_BUY, T_BUY, T_SELL
     global RSI_TO_SELL, RSI_TO_BUY, T_BUY, T_SELL
     df = pdr.get_data_yahoo(comp, up_date)
-    today = date.today()
-    if str(today) in df.index:
-        df = df.drop(index=today)
     df.index = df.index.strftime('%m-%d-%Y')
-    df.drop(index=df.index[0], 
-        axis=0, 
-        inplace=True) if df.index.size > 0 else None
     df.drop(['High', 'Low', 'Open', 'Volume', 'Adj Close'], axis=1, inplace=True)
 
     df = formula1(df)
@@ -645,22 +612,6 @@ def render_modal_update():
             id="update-modal",
             is_open=False,
         ),])
-
-def render_totals_table(df):
-    return [
-            dash_table.DataTable(data=df.to_dict('records'), 
-            columns=[{"name": i, "id": i,'type':'numeric', 'format':Format(precision=2,scheme=Scheme.fixed)} if i =='RSI' or i=='Price' else 
-            {"name": i, "id": i}for i in df.columns],
-            id='totals_table',
-            page_size=25,
-            style_header={'textAlign': 'center',
-                        'color':'white',
-                        'background-color':'#02457a',
-                        'font-size':'16px'},
-            style_cell={'textAlign': 'left',
-                        'color':'black',
-                        'font-size':'13px'},
-            )]
 
 def render_table(df):
     global RSI_TO_SELL, RSI_TO_BUY, T_BUY, T_SELL
@@ -1012,47 +963,6 @@ def watchlist2_dashboard():
                     ]))
             ]        
 
-
-def watchlist3_dashboard():
-    global RSI_TO_SELL, RSI_TO_BUY, T_BUY, T_SELL
-    return [   dbc.Col([
-                    html.Div(id='wl3fakeOutput'),
-                    html.Div(id='wl3fakeOutputTest'),
-                    html.Div(id='wl3fakeOutputRemove'),
-                    html.Div
-                    (html.H1(
-                        id='wl3_title_T',
-                        children="TOTAL UNIVERSE",
-                        className='text-center', 
-                        style={
-                            'color':'white'}), 
-                        style={
-                            'border':'1px solid',
-                            'border-radius':'20px',
-                            'background-color':
-                            '#001B48'})]),
-            ]        
-
-def watchlist4_dashboard():
-    global RSI_TO_SELL, RSI_TO_BUY, T_BUY, T_SELL
-    return [   dbc.Col([
-                    html.Div(id='wl4fakeOutput'),
-                    html.Div(id='wl4fakeOutputTest'),
-                    html.Div(id='wl4fakeOutputRemove'),
-                    html.Div
-                    (html.H1(
-                        id='wl4_title_T',
-                        children="MOVING AVERAGE",
-                        className='text-center', 
-                        style={
-                            'color':'white'}), 
-                        style={
-                            'border':'1px solid',
-                            'border-radius':'20px',
-                            'background-color':
-                            '#001B48'})]),
-            ]        
-
 def main():
     global RSI_TO_SELL, RSI_TO_BUY, T_BUY, T_SELL
     print("BUY AND TBUY", RSI_TO_BUY, T_BUY, type(RSI_TO_BUY),type(T_BUY))
@@ -1068,9 +978,7 @@ def main():
                 dbc.NavbarSimple([
                     dbc.NavLink("Main Dashboard", id='mdpage',href="/maindashboard", style={'color':'white'}),
                     dbc.NavLink("Watch List 1",id='wl1page', href="/wl1", style={'color':'white'}),
-                    dbc.NavLink("Watch List 2",id='wl2page', href="/wl2", style={'color':'white'}),
-                    dbc.NavLink("Watch List 3",id='wl3page', href="/wl3", style={'color':'white'}),
-                    dbc.NavLink("Moving Average",id='mavpage', href="/mav", style={'color':'white'})
+                    dbc.NavLink("Watch List 2",id='wl2page', href="/wl2", style={'color':'white'})
                 ],
                 color='#001B48')
             ]),

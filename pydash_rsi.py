@@ -30,7 +30,6 @@ RSI_TO_BUY=float(rsi_adjustable['RSI_TO_BUY'][0])
 RSI_TO_SELL=float(rsi_adjustable['RSI_TO_SELL'][0])
 T_SELL = RSI_TO_SELL-5
 T_BUY = RSI_TO_BUY+5
-st='B'
 companies = []
 click_counter = [0,0,0,0]
 source=pathlib.Path(__file__).parent.resolve()
@@ -245,7 +244,7 @@ def update_data_base(n_clicks, up_date):
         for symbol in companies:
             progress=round((counter/size)*100, 2)
             print('{0}% updating {1} data...'.format(str(progress),symbol))
-            df = rsi(symbol,[True,True,True], up_date, st)
+            df = rsi(symbol,[True,True,True], up_date)
             if max_date == None:
                 max_date=df['Date'].head(1)[0]
             else:
@@ -384,7 +383,6 @@ def filter_by_options(df,options):
         df = df[(df['STATUS']==compare_ops[0])]
     return df
 
-
 def formula1(df):
     global RSI_TO_SELL, RSI_TO_BUY, T_BUY, T_SELL
     global RSI_TO_SELL, RSI_TO_BUY, T_BUY, T_SELL
@@ -399,110 +397,23 @@ def formula1(df):
     df['RSI'] = round(100 - (100/(1+rs)),2)
     return df
 
-def eval_gain_loss_B(df):
-    df=pd.DataFrame(df.values,columns=df.columns)
-    delta_df = df[df['STATUS']=='SELL']
-    buy_index=list(delta_df.index)
-    buy_index.reverse()
-    df_indexes=list(df.index)
-    #print(df_indexes)
-    df['%'] = None
-    df['PROFIT']=None
-    df['LOSS']=None
-    cdf=df.values.tolist()
-    price=None
-    close=True
-    print(df)
-    for i in range(len(cdf)-1,-1,-1):
-        if cdf[i][3]=='SELL' and close:
-            price = cdf[i][1]
-            cdf[i][4]=0
-            close=False
-        elif price!=None:
-            per=((cdf[i][1]-price)/price)*100
-            cdf[i][4]=per
-            if per<0:
-                cdf[i][5]=(cdf[i][1]-price)*-100
-                cdf[i][6]=0
-            else:
-                cdf[i][5]=0
-                cdf[i][6]=(cdf[i][1]-price)*-100         
-            if per>=14 or per<=-12 or cdf[i][3]=='BUY':
-                cdf[i][3]='BUY'
-                close=True
-                price=None
-            else:
-                cdf[i][3]='HOLD'
-        else:
-            cdf[i][4]=0
-            cdf[i][5]=0
-            cdf[i][6]=0
-    df =pd.DataFrame(cdf,columns=list(df))
-    return df
-
-def eval_gain_loss(df):
-    df=pd.DataFrame(df.values,columns=df.columns)
-    delta_df = df[df['STATUS']=='BUY']
-    buy_index=list(delta_df.index)
-    buy_index.reverse()
-    df_indexes=list(df.index)
-    #print(df_indexes)
-    df['%'] = None
-    df['PROFIT']=None
-    df['LOSS']=None
-    cdf=df.values.tolist()
-    price=None
-    close=True
-    print(df)
-    for i in range(len(cdf)-1,-1,-1):
-        if cdf[i][3]=='BUY' and close:
-            price = cdf[i][1]
-            cdf[i][4]=0
-            close=False
-        elif price!=None:
-            per=((cdf[i][1]-price)/price)*100
-            cdf[i][4]=per
-            if per>0:
-                cdf[i][5]=(cdf[i][1]-price)*100
-                cdf[i][6]=0
-            else:
-                cdf[i][5]=0
-                cdf[i][6]=(cdf[i][1]-price)*100          
-            if per>=14 or per<=-12 or cdf[i][3]=='SELL':
-                cdf[i][3]='SELL'
-                close=True
-                price=None
-            else:
-                cdf[i][3]='HOLD'
-        else:
-            cdf[i][4]=0
-            cdf[i][5]=0
-            cdf[i][6]=0
-    df =pd.DataFrame(cdf,columns=list(df))
-    return df
-
-def rsi(comp, options, up_date, stg):
+def rsi(comp, options, up_date):
     global RSI_TO_SELL, RSI_TO_BUY, T_BUY, T_SELL
     global RSI_TO_SELL, RSI_TO_BUY, T_BUY, T_SELL
     df = pdr.get_data_yahoo(comp, up_date)
     df.index = df.index.strftime('%m-%d-%Y')
     df.drop(['High', 'Low', 'Open', 'Volume', 'Adj Close'], axis=1, inplace=True)
-
     df = formula1(df)
     df = df.rename(columns={'Close':'Price'})
     df.drop(['delta', 'up', 'down'], axis=1, inplace=True)
-    conditions=[df['RSI']<RSI_TO_BUY,df['RSI']>=RSI_TO_BUY] if stg=='A' else [df['RSI']>RSI_TO_SELL,df['RSI']<=RSI_TO_SELL] 
-
-    values = ['BUY', 'HOLD'] if stg=='A' else ['SELL', 'HOLD']
-
+    conditions=[df['RSI']<RSI_TO_BUY, df['RSI']>RSI_TO_SELL,(df['RSI']>=RSI_TO_BUY) & (df['RSI']<=RSI_TO_SELL)] 
+    values = ['BUY', 'SELL', 'HOLD'] 
     df['STATUS'] = np.select(conditions, values)
     df=filter_by_options(df,options)
     df['Date']=df.index
     first_column = df.pop('Date')
     df.insert(0,'Date',first_column)
     df = df.reindex(index=df.index[::-1])
-    df=eval_gain_loss(df) if stg=='A' else eval_gain_loss_B(df)
-    #print(df)
     return df
 
 def render_modal_remove():
@@ -567,11 +478,11 @@ def render_modal_adjust():
                 dbc.ModalHeader(dbc.ModalTitle("Adjust RSI")),
                 dcc.Input(
                     id="rssell", type="number",
-                    debounce=True, placeholder="",
+                    debounce=True, placeholder="RSI Sell Ceil (Current: {})".format(sr),
                 ),
                 dcc.Input(
                     id="rsbuy", type="number",
-                    debounce=True, placeholder="",
+                    debounce=True, placeholder="RSI Buy Floor (Current: {})".format(br),
                 ),
                 dbc.ModalFooter([
                     dbc.Button(
@@ -617,7 +528,7 @@ def render_table(df):
     global RSI_TO_SELL, RSI_TO_BUY, T_BUY, T_SELL
     global RSI_TO_SELL, RSI_TO_BUY, T_BUY, T_SELL
     print("alskakdlk",RSI_TO_SELL, RSI_TO_BUY, T_BUY, T_SELL)
-    render_conditional = '({RSI} >='+str(RSI_TO_BUY)+' && {RSI}<='+str(T_BUY)+')' if st=='A' else '({RSI}>='+str(T_SELL)+' && {RSI}<='+str(RSI_TO_SELL)+')'
+    render_conditional = '({RSI} >='+str(RSI_TO_BUY)+' && {RSI}<='+str(T_BUY)+') || ({RSI}>='+str(T_SELL)+' && {RSI}<='+str(RSI_TO_SELL)+')'
     return [
             dash_table.DataTable(data=df.to_dict('records'), 
             columns=[{"name": i, "id": i,'type':'numeric', 'format':Format(precision=2,scheme=Scheme.fixed)} if i =='RSI' or i=='Price' else 
@@ -691,7 +602,7 @@ def render_table(df):
 def render_wl1_table(df):
     global RSI_TO_SELL, RSI_TO_BUY, T_BUY, T_SELL
     global RSI_TO_SELL, RSI_TO_BUY, T_BUY, T_SELL
-    render_conditional = '({RSI} >='+str(RSI_TO_BUY)+' && {RSI}<='+str(T_BUY)+')' if st=='A' else '({RSI}>='+str(T_SELL)+' && {RSI}<='+str(RSI_TO_SELL)+')'
+    render_conditional = '({RSI} >='+str(RSI_TO_BUY)+' && {RSI}<='+str(T_BUY)+') || ({RSI}>='+str(T_SELL)+' && {RSI}<='+str(RSI_TO_SELL)+')'
     return [
             dash_table.DataTable(data=df.to_dict('records'), 
             columns=[{"name": i, "id": i,'type':'numeric', 'format':Format(precision=2,scheme=Scheme.fixed)} if i =='RSI' or i=='Price' else 
@@ -765,8 +676,7 @@ def render_wl1_table(df):
 def render_wl2_table(df):
     global RSI_TO_SELL, RSI_TO_BUY, T_BUY, T_SELL
     global RSI_TO_SELL, RSI_TO_BUY, T_BUY, T_SELL
-    render_conditional = '({RSI} >='+str(RSI_TO_BUY)+' && {RSI}<='+str(T_BUY)+')' if st=='A' else '({RSI}>='+str(T_SELL)+' && {RSI}<='+str(RSI_TO_SELL)+')'
-    print(render_conditional)
+    render_conditional = '({RSI} >='+str(RSI_TO_BUY)+' && {RSI}<='+str(T_BUY)+') || ({RSI}>='+str(T_SELL)+' && {RSI}<='+str(RSI_TO_SELL)+')'
     return [
             dash_table.DataTable(data=df.to_dict('records'), 
             columns=[{"name": i, "id": i,'type':'numeric', 'format':Format(precision=2,scheme=Scheme.fixed)} if i =='RSI' or i=='Price' else 

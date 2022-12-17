@@ -87,7 +87,7 @@ def remove_or_add_new_stock(add, remove, add_date, stock_to_add,stock_to_remove)
             if stock in companies:
                 raise Exception('That stock already exists')
             df = []
-            df=rsi(stock,[True,True,True], add_date, st)
+            df=rsi(stock,[True,True,True], add_date)
             companies.append(stock)
             companies.sort()
             source=pathlib.Path(__file__).parent.resolve()

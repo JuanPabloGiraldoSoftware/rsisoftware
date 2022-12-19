@@ -400,9 +400,10 @@ def formula1(df):
 def rsi(comp, options, up_date):
     global RSI_TO_SELL, RSI_TO_BUY, T_BUY, T_SELL
     global RSI_TO_SELL, RSI_TO_BUY, T_BUY, T_SELL
-    df = pdr.get_data_yahoo(comp, up_date)
+    print(comp, up_date)
+    df = yf.Ticker(comp).history(start=up_date)
     df.index = df.index.strftime('%m-%d-%Y')
-    df.drop(['High', 'Low', 'Open', 'Volume', 'Adj Close'], axis=1, inplace=True)
+    df.drop(['High', 'Low', 'Open', 'Volume','Dividends','Stock Splits'], axis=1, inplace=True)
     df = formula1(df)
     df = df.rename(columns={'Close':'Price'})
     df.drop(['delta', 'up', 'down'], axis=1, inplace=True)

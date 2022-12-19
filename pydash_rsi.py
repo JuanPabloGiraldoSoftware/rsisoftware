@@ -229,9 +229,9 @@ def toggle_modal_adjust(open_modal,close_modal,adj_modal, is_open):
 
 @app.callback(
 Output('fakeOutput', 'children'),
-Input('update-data','n_clicks'), Input('update-date-picker', 'date')
+Input('update-data','n_clicks'), Input('update-date-picker', 'date'), Input('check-yesterday','value')
 )
-def update_data_base(n_clicks, up_date):
+def update_data_base(n_clicks, up_date,check_yesterday):
     global RSI_TO_SELL, RSI_TO_BUY, T_BUY, T_SELL, companies
     print(date)
     if n_clicks>click_counter[2]:
@@ -241,10 +241,11 @@ def update_data_base(n_clicks, up_date):
         counter=1
         size=len(companies)
         max_date=None
+        print("Value: {}".format(check_yesterday))
         for symbol in companies:
             progress=round((counter/size)*100, 2)
             print('{0}% updating {1} data...'.format(str(progress),symbol))
-            df = rsi(symbol,[True,True,True], up_date)
+            df = rsi(symbol,[True,True,True], up_date, check_yesterday)
             if max_date == None:
                 max_date=df['Date'].head(1)[0]
             else:
@@ -397,13 +398,18 @@ def formula1(df):
     df['RSI'] = round(100 - (100/(1+rs)),2)
     return df
 
-def rsi(comp, options, up_date):
+def rsi(comp, options, up_date, chy):
     global RSI_TO_SELL, RSI_TO_BUY, T_BUY, T_SELL
     global RSI_TO_SELL, RSI_TO_BUY, T_BUY, T_SELL
     print(comp, up_date)
-    df = yf.Ticker(comp).history(start=up_date)
+    df=None
+    if chy:
+        yesterday=np.datetime64('today','D') - np.timedelta64(1,'D')
+        df = yf.download(comp, start=up_date, end=str(yesterday))
+    else:
+        df = yf.download(comp, start=up_date)
     df.index = df.index.strftime('%m-%d-%Y')
-    df.drop(['High', 'Low', 'Open', 'Volume','Dividends','Stock Splits'], axis=1, inplace=True)
+    df.drop(['High', 'Low', 'Open', 'Volume','Adj Close'], axis=1, inplace=True)
     df = formula1(df)
     df = df.rename(columns={'Close':'Price'})
     df.drop(['delta', 'up', 'down'], axis=1, inplace=True)
@@ -505,12 +511,18 @@ def render_modal_update():
             [
                 dbc.ModalHeader(dbc.ModalTitle("Warning")),
                 dbc.ModalBody("Do you really want to update the data base? this action cannot be undone!!"),
-                dcc.DatePickerSingle(
-                    id='update-date-picker',
-                    min_date_allowed=date(2016, 1, 1),
-                    initial_visible_month=date(2016, 1, 1),
-                    date=date(2016, 1, 1),
-                    with_portal=True
+                dbc.Row(children=[
+                    dbc.Col(dcc.DatePickerSingle(
+                        id='update-date-picker',
+                        min_date_allowed=date(2016, 1, 1),
+                        initial_visible_month=date(2016, 1, 1),
+                        date=date(2016, 1, 1),
+                        with_portal=True
+                    )),
+                    dbc.Col(dcc.Checklist(
+                        ['Update until yesterday'],
+                        id='check-yesterday'
+                    ))]
                 ),
                 dbc.ModalFooter([
                     dbc.Button(

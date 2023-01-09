@@ -197,14 +197,15 @@ def adjust_rsi(n_clicks, rsell,rbuy):
             df['STATUS'] = np.select(conditions, values)
             df.to_csv('{0}/data_base/{1}.csv'.format(source, symbol), index=False, float_format='%.2f')
             dftmp = df[(df['RSI'] <= T_BUY) & (df['RSI']>=RSI_TO_BUY) | ((df['RSI']<=RSI_TO_SELL) & (df['RSI']>=T_SELL))]
+            dftmp2 = df[df['STATUS']!='HOLD'] 
             if len(df_watchlist) == 0:
                 print('{0}% updating {1} data...'.format(str(progress),'WATCHLIST'))
                 df_watchlist = dftmp
-                df_watchlist2 = df
+                df_watchlist2 = dftmp2
             else:
                 print('{0}% updating {1} data...'.format(str(progress),'WATCHLIST'))
                 df_watchlist=pd.concat([df_watchlist,dftmp])
-                df_watchlist2=pd.concat([df_watchlist2,df])
+                df_watchlist2=pd.concat([df_watchlist2,dftmp2])
             counter+=1
         df_watchlist = df_watchlist[df_watchlist['Date']==max_date]
         df_watchlist2 = df_watchlist2[df_watchlist2['Date']==max_date]
@@ -255,14 +256,15 @@ def update_data_base(n_clicks, up_date,check_yesterday):
             df.to_csv('{0}/data_base/{1}.csv'.format(source, symbol), index=False, float_format='%.2f')
             df['Stock'] = symbol
             dftmp = df[(df['RSI'] <= T_BUY) & (df['RSI']>=RSI_TO_BUY) | ((df['RSI']<=RSI_TO_SELL) & (df['RSI']>=T_SELL))]
+            dftmp2 = df[df['STATUS']!='HOLD']
             if len(df_watchlist) == 0:
                 print('{0}% updating {1} data...'.format(str(progress),'WATCHLIST'))
                 df_watchlist = dftmp
-                df_watchlist2 = df
+                df_watchlist2 = dftmp2
             else:
                 print('{0}% updating {1} data...'.format(str(progress),'WATCHLIST'))
                 df_watchlist=pd.concat([df_watchlist,dftmp])
-                df_watchlist2=pd.concat([df_watchlist2,df])
+                df_watchlist2=pd.concat([df_watchlist2,dftmp2])
             counter+=1
         df_watchlist = df_watchlist[df_watchlist['Date']==max_date]
         df_watchlist2 = df_watchlist2[df_watchlist2['Date']==max_date]
@@ -404,7 +406,7 @@ def rsi(comp, options, up_date, chy):
     print(comp, up_date)
     df=None
     if chy:
-        yesterday=np.datetime64('today','D') - np.timedelta64(1,'D')
+        yesterday=np.datetime64('today','D')
         df = yf.download(comp, start=up_date, end=str(yesterday))
     else:
         df = yf.download(comp, start=up_date)

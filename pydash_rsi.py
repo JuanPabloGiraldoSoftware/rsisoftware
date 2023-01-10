@@ -2,7 +2,6 @@ from posixpath import split
 import dash
 from dash import Dash, dash_table, Input, Output, State
 from dash import dcc
-from datetime import date
 from dash import html
 import dash_bootstrap_components as dbc
 import pandas_datareader as pdr
@@ -26,16 +25,15 @@ app=dash.Dash(__name__, suppress_callback_exceptions=True,external_stylesheets=[
     }])
 
 source_adj=pathlib.Path(__file__).parent.resolve()
-rsi_adjustable=pd.read_csv('{0}/datasets/RSIADJUST.csv'.format(source_adj))
+rsi_adjustable=pd.read_csv('{0}/data_base/RSIADJUST.csv'.format(source_adj))
 RSI_TO_BUY=float(rsi_adjustable['RSI_TO_BUY'][0])
 RSI_TO_SELL=float(rsi_adjustable['RSI_TO_SELL'][0])
 T_SELL = RSI_TO_SELL-5
 T_BUY = RSI_TO_BUY+5
-st='A'
 companies = []
 click_counter = [0,0,0,0]
 source=pathlib.Path(__file__).parent.resolve()
-df=pd.read_csv('{0}/datasets/STOCKS.csv'.format(source))
+df=pd.read_csv('{0}/data_base/STOCKS.csv'.format(source))
 for stock in df.values:
     companies.append(stock[0])
 companies = list(set(companies))
@@ -43,16 +41,16 @@ companies.sort()
 
 @app.callback(
     [Output('dashboard-header','children'),Output('dashboard-content','children'),
-    Output('mdpage','n_clicks'),Output('wl1page','n_clicks'),Output('wl2page','n_clicks'),Output('wl3page','n_clicks'),Output('mavpage','n_clicks')],
-    [Input('mdpage','n_clicks'), Input('wl1page','n_clicks'), Input('wl2page','n_clicks'),Input('wl3page','n_clicks'),Input('mavpage','n_clicks')]
+    Output('mdpage','n_clicks'),Output('wl1page','n_clicks'),Output('wl2page','n_clicks')],
+    [Input('mdpage','n_clicks'), Input('wl1page','n_clicks'), Input('wl2page','n_clicks')]
 )
-def change_dashboard_page(clicks_md, clicks_wl1, clicks_wl2,clicks_wl3,clicks_mav):
+def change_dashboard_page(clicks_md, clicks_wl1, clicks_wl2):
     global RSI_TO_SELL, RSI_TO_BUY, T_BUY, T_SELL
     source=pathlib.Path(__file__).parent.resolve()
-    df=pd.read_csv('{0}/datasets/AA.csv'.format(source))
+    df=pd.read_csv('{0}/data_base/AA.csv'.format(source))
     df = filter_by_options(df,[True,True,True])
     if clicks_wl1:
-        df=pd.read_csv('{0}/datasets/WATCHLIST.csv'.format(source))
+        df=pd.read_csv('{0}/data_base/WATCHLIST.csv'.format(source))
         df = filter_by_options(df,[True,True,True])
         wl_df=[]
         for stock in companies:
@@ -62,18 +60,12 @@ def change_dashboard_page(clicks_md, clicks_wl1, clicks_wl2,clicks_wl3,clicks_ma
             else:
                 wl_df=pd.concat([wl_df,df_tmp])
         df=wl_df
-        return watchlist1_dashboard(), render_wl1_table(df),0,0,0,0,0
+        return watchlist1_dashboard(), render_wl1_table(df),0,0,0
     elif clicks_wl2:
-        df=pd.read_csv('{0}/datasets/WATCHLIST2.csv'.format(source))
+        df=pd.read_csv('{0}/data_base/WATCHLIST2.csv'.format(source))
         df = filter_by_options(df,[True,True,True])
-        return watchlist2_dashboard(), render_wl2_table(df),0,0,0,0,0
-    elif clicks_wl3:
-        print("IN W3")
-        df=pd.read_csv('{0}/datasets/TOTALUNIVERSE.csv'.format(source))
-        return watchlist3_dashboard(), render_totals_table(df),0,0,0,0,0
-    elif clicks_mav:
-        pass
-    return main_dashboard_header(), render_table(df),0,0,0,0,0
+        return watchlist2_dashboard(), render_wl2_table(df),0,0,0
+    return main_dashboard_header(), render_table(df),0,0,0
 
 @app.callback(
     [Output('fakeOutputTest','children'), Output('company-filter', 'options'), Output('remove-dropdown-menu','options'), 
@@ -95,14 +87,14 @@ def remove_or_add_new_stock(add, remove, add_date, stock_to_add,stock_to_remove)
             if stock in companies:
                 raise Exception('That stock already exists')
             df = []
-            df=rsi(stock,[True,True,True], add_date, st)
+            df=rsi(stock,[True,True,True], add_date, False)
             companies.append(stock)
             companies.sort()
             source=pathlib.Path(__file__).parent.resolve()
-            df.to_csv('{0}/datasets/{1}.csv'.format(source, stock), index=False, float_format='%.2f')
+            df.to_csv('{0}/data_base/{1}.csv'.format(source, stock), index=False, float_format='%.2f')
             df = pd.DataFrame(companies)
             source=pathlib.Path(__file__).parent.resolve()
-            df.to_csv('{0}/datasets/STOCKS.csv'.format(source), index=False)
+            df.to_csv('{0}/data_base/STOCKS.csv'.format(source), index=False)
 
         except Exception as e:
             print(type(e))
@@ -131,10 +123,10 @@ def remove_or_add_new_stock(add, remove, add_date, stock_to_add,stock_to_remove)
         click_counter[0]=remove
         companies.remove(stock_to_remove)
         source=pathlib.Path(__file__).parent.resolve()
-        os.remove('{0}/datasets/{1}.csv'.format(source, stock_to_remove))
+        os.remove('{0}/data_base/{1}.csv'.format(source, stock_to_remove))
         companies.sort()
         df= pd.DataFrame(companies)
-        df.to_csv('{0}/datasets/STOCKS.csv'.format(source), index=False)
+        df.to_csv('{0}/data_base/STOCKS.csv'.format(source), index=False)
     return fake, companies , companies,'', ''
 
 @app.callback(
@@ -174,11 +166,11 @@ def adjust_rsi(n_clicks, rsell,rbuy):
         print('entering conditional')
         click_counter[3]=n_clicks
         source=pathlib.Path(__file__).parent.resolve()
-        df_rs=pd.read_csv('{0}/datasets/RSIADJUST.csv'.format(source))
+        df_rs=pd.read_csv('{0}/data_base/RSIADJUST.csv'.format(source))
         df_rs['RSI_TO_BUY'] = rbuy
         df_rs['RSI_TO_SELL'] = rsell
         print(df_rs)
-        df_rs.to_csv('{0}/datasets/RSIADJUST.csv'.format(source), index=False, float_format='%.2f')
+        df_rs.to_csv('{0}/data_base/RSIADJUST.csv'.format(source), index=False, float_format='%.2f')
         RSI_TO_BUY=float(rbuy)
         RSI_TO_SELL=float(rsell)
         T_SELL = RSI_TO_SELL-5
@@ -192,7 +184,7 @@ def adjust_rsi(n_clicks, rsell,rbuy):
         for symbol in tmp_companies:
             progress=round((counter/size)*100, 2)
             print('{0}% updating {1} data...'.format(str(progress),symbol))
-            df=pd.read_csv('{0}/datasets/{1}.csv'.format(source, symbol))
+            df=pd.read_csv('{0}/data_base/{1}.csv'.format(source, symbol))
             if max_date == None:
                 max_date=df['Date'].head(1)[0]
             else:
@@ -203,21 +195,22 @@ def adjust_rsi(n_clicks, rsell,rbuy):
                 (df['RSI']>=RSI_TO_BUY) & (df['RSI']<=RSI_TO_SELL)]
             values = ['BUY', 'SELL', 'HOLD']
             df['STATUS'] = np.select(conditions, values)
-            df.to_csv('{0}/datasets/{1}.csv'.format(source, symbol), index=False, float_format='%.2f')
+            df.to_csv('{0}/data_base/{1}.csv'.format(source, symbol), index=False, float_format='%.2f')
             dftmp = df[(df['RSI'] <= T_BUY) & (df['RSI']>=RSI_TO_BUY) | ((df['RSI']<=RSI_TO_SELL) & (df['RSI']>=T_SELL))]
+            dftmp2 = df[df['STATUS']!='HOLD'] 
             if len(df_watchlist) == 0:
                 print('{0}% updating {1} data...'.format(str(progress),'WATCHLIST'))
                 df_watchlist = dftmp
-                df_watchlist2 = df
+                df_watchlist2 = dftmp2
             else:
                 print('{0}% updating {1} data...'.format(str(progress),'WATCHLIST'))
                 df_watchlist=pd.concat([df_watchlist,dftmp])
-                df_watchlist2=pd.concat([df_watchlist2,df])
+                df_watchlist2=pd.concat([df_watchlist2,dftmp2])
             counter+=1
         df_watchlist = df_watchlist[df_watchlist['Date']==max_date]
         df_watchlist2 = df_watchlist2[df_watchlist2['Date']==max_date]
-        df_watchlist.to_csv('{0}/datasets/WATCHLIST.csv'.format(source), index=False, float_format='%.2f')
-        df_watchlist2.to_csv('{0}/datasets/WATCHLIST2.csv'.format(source), index=False, float_format='%.2f')
+        df_watchlist.to_csv('{0}/data_base/WATCHLIST.csv'.format(source), index=False, float_format='%.2f')
+        df_watchlist2.to_csv('{0}/data_base/WATCHLIST2.csv'.format(source), index=False, float_format='%.2f')
             
     return html.Div([])
 
@@ -237,64 +230,46 @@ def toggle_modal_adjust(open_modal,close_modal,adj_modal, is_open):
 
 @app.callback(
 Output('fakeOutput', 'children'),
-Input('update-data','n_clicks'), Input('update-date-picker', 'date')
+Input('update-data','n_clicks'), Input('update-date-picker', 'date'), Input('check-yesterday','value')
 )
-def update_datasets(n_clicks, up_date):
+def update_data_base(n_clicks, up_date,check_yesterday):
     global RSI_TO_SELL, RSI_TO_BUY, T_BUY, T_SELL, companies
     print(date)
     if n_clicks>click_counter[2]:
         click_counter[2]=n_clicks
         df_watchlist=[]
         df_watchlist2=[]
-        df_moving_average = []
         counter=1
         size=len(companies)
         max_date=None
-        
-        df_watchlist3=pd.DataFrame([],columns=['Profit SA',
-        'Losses SA','Profit SB',
-        'Losses SB','Wins 14% SA',
-        'Wins 14% SB','Loss 12% SA',
-        'Loss 12% SB', 'Below RSI A',
-        'Below RSI B'])
-        source=pathlib.Path(__file__).parent.resolve()
-        df_watchlist3.to_csv('{0}/datasets/TOTALUNIVERSE.csv'.format(source), index=False, float_format='%.2f')
+        print("Value: {}".format(check_yesterday))
         for symbol in companies:
             progress=round((counter/size)*100, 2)
             print('{0}% updating {1} data...'.format(str(progress),symbol))
-            df = rsi(symbol,[True,True,True], up_date, st)
+            df = rsi(symbol,[True,True,True], up_date, check_yesterday)
             if max_date == None:
                 max_date=df['Date'].head(1)[0]
             else:
                 max_date = max(max_date,df['Date'].head(1)[0])
             print(max_date)
             source=pathlib.Path(__file__).parent.resolve()
-            df.to_csv('{0}/datasets/{1}.csv'.format(source, symbol), index=False, float_format='%.2f')
+            df.to_csv('{0}/data_base/{1}.csv'.format(source, symbol), index=False, float_format='%.2f')
             df['Stock'] = symbol
             dftmp = df[(df['RSI'] <= T_BUY) & (df['RSI']>=RSI_TO_BUY) | ((df['RSI']<=RSI_TO_SELL) & (df['RSI']>=T_SELL))]
+            dftmp2 = df[df['STATUS']!='HOLD']
             if len(df_watchlist) == 0:
                 print('{0}% updating {1} data...'.format(str(progress),'WATCHLIST'))
                 df_watchlist = dftmp
-                df_watchlist2 = df
+                df_watchlist2 = dftmp2
             else:
                 print('{0}% updating {1} data...'.format(str(progress),'WATCHLIST'))
                 df_watchlist=pd.concat([df_watchlist,dftmp])
-                df_watchlist2=pd.concat([df_watchlist2,df])
-            dfav = df.head(20)
-            dfav['Moving Average'] = sum(dfav['Price'])/20
-            dfav=dfav.drop(['Price','RSI','%','PROFIT','LOSS','STATUS'], axis=1)
-            dfav=dfav.head(1)
-            print(dfav)
-            if len(df_moving_average) == 0:
-                df_moving_average = dfav
-            else:
-                df_moving_average=pd.concat([df_moving_average,dfav], axis=0)
+                df_watchlist2=pd.concat([df_watchlist2,dftmp2])
             counter+=1
         df_watchlist = df_watchlist[df_watchlist['Date']==max_date]
         df_watchlist2 = df_watchlist2[df_watchlist2['Date']==max_date]
-        df_watchlist.to_csv('{0}/datasets/WATCHLIST.csv'.format(source), index=False, float_format='%.2f')
-        df_watchlist2.to_csv('{0}/datasets/WATCHLIST2.csv'.format(source), index=False, float_format='%.2f')
-        df_moving_average.to_csv('{0}/datasets/MOVINGAVERAGE.csv'.format(source), index=False, float_format='%.2f')
+        df_watchlist.to_csv('{0}/data_base/WATCHLIST.csv'.format(source), index=False, float_format='%.2f')
+        df_watchlist2.to_csv('{0}/data_base/WATCHLIST2.csv'.format(source), index=False, float_format='%.2f')
     return html.Div([])
 
 
@@ -308,7 +283,7 @@ def update_wl2_table(comp):
     global RSI_TO_SELL, RSI_TO_BUY, T_BUY, T_SELL
     print(comp)
     source=pathlib.Path(__file__).parent.resolve()
-    df=pd.read_csv('{0}/datasets/WATCHLIST2.csv'.format(source))
+    df=pd.read_csv('{0}/data_base/WATCHLIST2.csv'.format(source))
     df = filter_by_options(df,[True,True,True])
     wl_df = []
     for stock in companies:
@@ -335,7 +310,7 @@ def update_wl1_table(comp):
     global RSI_TO_SELL, RSI_TO_BUY, T_BUY, T_SELL
     print(comp)
     source=pathlib.Path(__file__).parent.resolve()
-    df=pd.read_csv('{0}/datasets/WATCHLIST.csv'.format(source))
+    df=pd.read_csv('{0}/data_base/WATCHLIST.csv'.format(source))
     df = filter_by_options(df,[True,True,True])
     wl_df = []
     for stock in companies:
@@ -367,7 +342,7 @@ def update_table(comp, options):
     for o in options:
         outops[o-1] = True
     source=pathlib.Path(__file__).parent.resolve()
-    df=pd.read_csv('{0}/datasets/{1}.csv'.format(source, comp))
+    df=pd.read_csv('{0}/data_base/{1}.csv'.format(source, comp))
     df = filter_by_options(df,outops)
     rsi_records_data=df.to_dict('records')
     rsi_values_columns=[{"name": i, "id": i,'type':'numeric', 'format':Format(precision=2,scheme=Scheme.fixed)} if i =='RSI' or i=='Price' else 
@@ -411,7 +386,6 @@ def filter_by_options(df,options):
         df = df[(df['STATUS']==compare_ops[0])]
     return df
 
-
 def formula1(df):
     global RSI_TO_SELL, RSI_TO_BUY, T_BUY, T_SELL
     global RSI_TO_SELL, RSI_TO_BUY, T_BUY, T_SELL
@@ -426,116 +400,29 @@ def formula1(df):
     df['RSI'] = round(100 - (100/(1+rs)),2)
     return df
 
-def eval_gain_loss_B(df):
-    df=pd.DataFrame(df.values,columns=df.columns)
-    delta_df = df[df['STATUS']=='SELL']
-    buy_index=list(delta_df.index)
-    buy_index.reverse()
-    df_indexes=list(df.index)
-    #print(df_indexes)
-    df['%'] = None
-    df['PROFIT']=None
-    df['LOSS']=None
-    cdf=df.values.tolist()
-    price=None
-    close=True
-    print(df)
-    for i in range(len(cdf)-1,-1,-1):
-        if cdf[i][3]=='SELL' and close:
-            price = cdf[i][1]
-            cdf[i][4]=0
-            close=False
-        elif price!=None:
-            per=((cdf[i][1]-price)/price)*100
-            cdf[i][4]=per
-            if per<0:
-                cdf[i][5]=(cdf[i][1]-price)*-100
-                cdf[i][6]=0
-            else:
-                cdf[i][5]=0
-                cdf[i][6]=(cdf[i][1]-price)*-100         
-            if per>=14 or per<=-12 or cdf[i][3]=='BUY':
-                cdf[i][3]='BUY'
-                close=True
-                price=None
-            else:
-                cdf[i][3]='HOLD'
-        else:
-            cdf[i][4]=0
-            cdf[i][5]=0
-            cdf[i][6]=0
-    df =pd.DataFrame(cdf,columns=list(df))
-    return df
-
-def eval_gain_loss(df):
-    df=pd.DataFrame(df.values,columns=df.columns)
-    delta_df = df[df['STATUS']=='BUY']
-    buy_index=list(delta_df.index)
-    buy_index.reverse()
-    df_indexes=list(df.index)
-    #print(df_indexes)
-    df['%'] = None
-    df['PROFIT']=None
-    df['LOSS']=None
-    cdf=df.values.tolist()
-    price=None
-    close=True
-    print(df)
-    for i in range(len(cdf)-1,-1,-1):
-        if cdf[i][3]=='BUY' and close:
-            price = cdf[i][1]
-            cdf[i][4]=0
-            close=False
-        elif price!=None:
-            per=((cdf[i][1]-price)/price)*100
-            cdf[i][4]=per
-            if per>0:
-                cdf[i][5]=(cdf[i][1]-price)*100
-                cdf[i][6]=0
-            else:
-                cdf[i][5]=0
-                cdf[i][6]=(cdf[i][1]-price)*100          
-            if per>=14 or per<=-12 or cdf[i][3]=='SELL':
-                cdf[i][3]='SELL'
-                close=True
-                price=None
-            else:
-                cdf[i][3]='HOLD'
-        else:
-            cdf[i][4]=0
-            cdf[i][5]=0
-            cdf[i][6]=0
-    df =pd.DataFrame(cdf,columns=list(df))
-    return df
-
-def rsi(comp, options, up_date, stg):
+def rsi(comp, options, up_date, chy):
     global RSI_TO_SELL, RSI_TO_BUY, T_BUY, T_SELL
     global RSI_TO_SELL, RSI_TO_BUY, T_BUY, T_SELL
-    df = pdr.get_data_yahoo(comp, up_date)
-    today = date.today()
-    if str(today) in df.index:
-        df = df.drop(index=today)
+    print(comp, up_date)
+    df=None
+    if chy:
+        yesterday=np.datetime64('today','D')
+        df = yf.download(comp, start=up_date, end=str(yesterday))
+    else:
+        df = yf.download(comp, start=up_date)
     df.index = df.index.strftime('%m-%d-%Y')
-    df.drop(index=df.index[0], 
-        axis=0, 
-        inplace=True) if df.index.size > 0 else None
-    df.drop(['High', 'Low', 'Open', 'Volume', 'Adj Close'], axis=1, inplace=True)
-
+    df.drop(['High', 'Low', 'Open', 'Volume','Adj Close'], axis=1, inplace=True)
     df = formula1(df)
     df = df.rename(columns={'Close':'Price'})
     df.drop(['delta', 'up', 'down'], axis=1, inplace=True)
-    conditions=[df['RSI']<RSI_TO_BUY,df['RSI']>=RSI_TO_BUY] if stg=='A' else [df['RSI']>RSI_TO_SELL,df['RSI']<=RSI_TO_SELL] 
-
-    values = ['BUY', 'HOLD'] if stg=='A' else ['SELL', 'HOLD']
-
+    conditions=[df['RSI']<RSI_TO_BUY, df['RSI']>RSI_TO_SELL,(df['RSI']>=RSI_TO_BUY) & (df['RSI']<=RSI_TO_SELL)] 
+    values = ['BUY', 'SELL', 'HOLD'] 
     df['STATUS'] = np.select(conditions, values)
     df=filter_by_options(df,options)
     df['Date']=df.index
     first_column = df.pop('Date')
     df.insert(0,'Date',first_column)
     df = df.reindex(index=df.index[::-1])
-    df=eval_gain_loss(df) if stg=='A' else eval_gain_loss_B(df)
-    #print(df)
     return df
 
 def render_modal_remove():
@@ -592,7 +479,7 @@ def render_modal_add():
 def render_modal_adjust():
     global RSI_TO_SELL, RSI_TO_BUY, T_BUY, T_SELL
     source=pathlib.Path(__file__).parent.resolve()
-    df=pd.read_csv('{0}/datasets/RSIADJUST.csv'.format(source))
+    df=pd.read_csv('{0}/data_base/RSIADJUST.csv'.format(source))
     br,sr = df.values[0]
     return html.Div(
     [dbc.Modal(
@@ -600,11 +487,11 @@ def render_modal_adjust():
                 dbc.ModalHeader(dbc.ModalTitle("Adjust RSI")),
                 dcc.Input(
                     id="rssell", type="number",
-                    debounce=True, placeholder="",
+                    debounce=True, placeholder="RSI Sell Ceil (Current: {})".format(sr),
                 ),
                 dcc.Input(
                     id="rsbuy", type="number",
-                    debounce=True, placeholder="",
+                    debounce=True, placeholder="RSI Buy Floor (Current: {})".format(br),
                 ),
                 dbc.ModalFooter([
                     dbc.Button(
@@ -626,12 +513,18 @@ def render_modal_update():
             [
                 dbc.ModalHeader(dbc.ModalTitle("Warning")),
                 dbc.ModalBody("Do you really want to update the data base? this action cannot be undone!!"),
-                dcc.DatePickerSingle(
-                    id='update-date-picker',
-                    min_date_allowed=date(2016, 1, 1),
-                    initial_visible_month=date(2016, 1, 1),
-                    date=date(2016, 1, 1),
-                    with_portal=True
+                dbc.Row(children=[
+                    dbc.Col(dcc.DatePickerSingle(
+                        id='update-date-picker',
+                        min_date_allowed=date(2016, 1, 1),
+                        initial_visible_month=date(2016, 1, 1),
+                        date=date(2016, 1, 1),
+                        with_portal=True
+                    )),
+                    dbc.Col(dcc.Checklist(
+                        ['Update until yesterday'],
+                        id='check-yesterday'
+                    ))]
                 ),
                 dbc.ModalFooter([
                     dbc.Button(
@@ -646,27 +539,11 @@ def render_modal_update():
             is_open=False,
         ),])
 
-def render_totals_table(df):
-    return [
-            dash_table.DataTable(data=df.to_dict('records'), 
-            columns=[{"name": i, "id": i,'type':'numeric', 'format':Format(precision=2,scheme=Scheme.fixed)} if i =='RSI' or i=='Price' else 
-            {"name": i, "id": i}for i in df.columns],
-            id='totals_table',
-            page_size=25,
-            style_header={'textAlign': 'center',
-                        'color':'white',
-                        'background-color':'#02457a',
-                        'font-size':'16px'},
-            style_cell={'textAlign': 'left',
-                        'color':'black',
-                        'font-size':'13px'},
-            )]
-
 def render_table(df):
     global RSI_TO_SELL, RSI_TO_BUY, T_BUY, T_SELL
     global RSI_TO_SELL, RSI_TO_BUY, T_BUY, T_SELL
     print("alskakdlk",RSI_TO_SELL, RSI_TO_BUY, T_BUY, T_SELL)
-    render_conditional = '({RSI} >='+str(RSI_TO_BUY)+' && {RSI}<='+str(T_BUY)+')' if st=='A' else '({RSI}>='+str(T_SELL)+' && {RSI}<='+str(RSI_TO_SELL)+')'
+    render_conditional = '({RSI} >='+str(RSI_TO_BUY)+' && {RSI}<='+str(T_BUY)+') || ({RSI}>='+str(T_SELL)+' && {RSI}<='+str(RSI_TO_SELL)+')'
     return [
             dash_table.DataTable(data=df.to_dict('records'), 
             columns=[{"name": i, "id": i,'type':'numeric', 'format':Format(precision=2,scheme=Scheme.fixed)} if i =='RSI' or i=='Price' else 
@@ -740,7 +617,7 @@ def render_table(df):
 def render_wl1_table(df):
     global RSI_TO_SELL, RSI_TO_BUY, T_BUY, T_SELL
     global RSI_TO_SELL, RSI_TO_BUY, T_BUY, T_SELL
-    render_conditional = '({RSI} >='+str(RSI_TO_BUY)+' && {RSI}<='+str(T_BUY)+')' if st=='A' else '({RSI}>='+str(T_SELL)+' && {RSI}<='+str(RSI_TO_SELL)+')'
+    render_conditional = '({RSI} >='+str(RSI_TO_BUY)+' && {RSI}<='+str(T_BUY)+') || ({RSI}>='+str(T_SELL)+' && {RSI}<='+str(RSI_TO_SELL)+')'
     return [
             dash_table.DataTable(data=df.to_dict('records'), 
             columns=[{"name": i, "id": i,'type':'numeric', 'format':Format(precision=2,scheme=Scheme.fixed)} if i =='RSI' or i=='Price' else 
@@ -814,8 +691,7 @@ def render_wl1_table(df):
 def render_wl2_table(df):
     global RSI_TO_SELL, RSI_TO_BUY, T_BUY, T_SELL
     global RSI_TO_SELL, RSI_TO_BUY, T_BUY, T_SELL
-    render_conditional = '({RSI} >='+str(RSI_TO_BUY)+' && {RSI}<='+str(T_BUY)+')' if st=='A' else '({RSI}>='+str(T_SELL)+' && {RSI}<='+str(RSI_TO_SELL)+')'
-    print(render_conditional)
+    render_conditional = '({RSI} >='+str(RSI_TO_BUY)+' && {RSI}<='+str(T_BUY)+') || ({RSI}>='+str(T_SELL)+' && {RSI}<='+str(RSI_TO_SELL)+')'
     return [
             dash_table.DataTable(data=df.to_dict('records'), 
             columns=[{"name": i, "id": i,'type':'numeric', 'format':Format(precision=2,scheme=Scheme.fixed)} if i =='RSI' or i=='Price' else 
@@ -1012,54 +888,13 @@ def watchlist2_dashboard():
                     ]))
             ]        
 
-
-def watchlist3_dashboard():
-    global RSI_TO_SELL, RSI_TO_BUY, T_BUY, T_SELL
-    return [   dbc.Col([
-                    html.Div(id='wl3fakeOutput'),
-                    html.Div(id='wl3fakeOutputTest'),
-                    html.Div(id='wl3fakeOutputRemove'),
-                    html.Div
-                    (html.H1(
-                        id='wl3_title_T',
-                        children="TOTAL UNIVERSE",
-                        className='text-center', 
-                        style={
-                            'color':'white'}), 
-                        style={
-                            'border':'1px solid',
-                            'border-radius':'20px',
-                            'background-color':
-                            '#001B48'})]),
-            ]        
-
-def watchlist4_dashboard():
-    global RSI_TO_SELL, RSI_TO_BUY, T_BUY, T_SELL
-    return [   dbc.Col([
-                    html.Div(id='wl4fakeOutput'),
-                    html.Div(id='wl4fakeOutputTest'),
-                    html.Div(id='wl4fakeOutputRemove'),
-                    html.Div
-                    (html.H1(
-                        id='wl4_title_T',
-                        children="MOVING AVERAGE",
-                        className='text-center', 
-                        style={
-                            'color':'white'}), 
-                        style={
-                            'border':'1px solid',
-                            'border-radius':'20px',
-                            'background-color':
-                            '#001B48'})]),
-            ]        
-
 def main():
     global RSI_TO_SELL, RSI_TO_BUY, T_BUY, T_SELL
     print("BUY AND TBUY", RSI_TO_BUY, T_BUY, type(RSI_TO_BUY),type(T_BUY))
     print("SELL AND TSELL", RSI_TO_SELL,T_SELL, type(RSI_TO_SELL),type(T_SELL))
     webbrowser.open("http://127.0.0.1:8050/")
     source=pathlib.Path(__file__).parent.resolve()
-    df=pd.read_csv('{0}/datasets/ALL.csv'.format(source))
+    df=pd.read_csv('{0}/data_base/ALL.csv'.format(source))
     df = filter_by_options(df,[True,True,True])
     app.layout=html.Div([
         dbc.Container([dbc.Spinner(children=[dbc.Container([
@@ -1068,9 +903,7 @@ def main():
                 dbc.NavbarSimple([
                     dbc.NavLink("Main Dashboard", id='mdpage',href="/maindashboard", style={'color':'white'}),
                     dbc.NavLink("Watch List 1",id='wl1page', href="/wl1", style={'color':'white'}),
-                    dbc.NavLink("Watch List 2",id='wl2page', href="/wl2", style={'color':'white'}),
-                    dbc.NavLink("Watch List 3",id='wl3page', href="/wl3", style={'color':'white'}),
-                    dbc.NavLink("Moving Average",id='mavpage', href="/mav", style={'color':'white'})
+                    dbc.NavLink("Watch List 2",id='wl2page', href="/wl2", style={'color':'white'})
                 ],
                 color='#001B48')
             ]),
@@ -1094,8 +927,3 @@ def main():
         app.run_server(debug=False)
 
 main()
-
-
-
-
-

@@ -45,7 +45,7 @@ def main():
     app.layout= html.Div([
         navbar(app.get_asset_url("images/aa.png"),"MAIN","current_symbol"),
         dropdown_menu(symbols, 'symbols_dropdown'),
-        dbc.Row(table(pd.DataFrame(),'True',"rsi_table"), id="rsi_cointainer")
+        dbc.Row(table(pd.DataFrame(),'True',"rsi_table"), id="rsi_cointainer", style={"width":"45%","heigth":"45%"})
     ])
     if __name__ == "__main__":
         app.run_server(debug=True)

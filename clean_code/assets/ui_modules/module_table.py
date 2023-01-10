@@ -8,7 +8,7 @@ def build_table(dataframe, render_conditional, table_id):
             {"name": i, "id": i}for i in dataframe.columns],
             id=table_id,
             page_size=25,
-            style_as_list_view=True,
+            style_as_list_view=False,
             style_header={'textAlign': 'center',
                         'border-radius': '3px',
                         'color': 'white',
@@ -16,7 +16,7 @@ def build_table(dataframe, render_conditional, table_id):
                         'margin': '0 auto',
                         'font-size': '16px'},
             style_cell={'textAlign': 'center',
-                        'border-radius': '3px',
+                        'border-radius': '20px',
                         'color': 'white',
                         'background-color':'gray',
                         'margin': '0 auto',
@@ -68,7 +68,7 @@ def build_table(dataframe, render_conditional, table_id):
                     'if': {
                         'column_id': 'Price'
                         },
-                    'text-align': 'right',
+                    'text-align': 'right'
                 },
                                 {
                     'if': {

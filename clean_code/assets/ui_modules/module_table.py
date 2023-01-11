@@ -3,7 +3,7 @@ from dash.dash_table.Format import Format, Scheme, Trim
 
 def build_table(dataframe, render_conditional, table_id):
 
-    table = [dash_table.DataTable(data=dataframe.to_dict('records'), 
+    table = dash_table.DataTable(data=dataframe.to_dict('records'), 
             columns=[{"name": i, "id": i,'type':'numeric', 'format':Format(precision=2,scheme=Scheme.fixed)} if i =='RSI' or i=='Price' else 
             {"name": i, "id": i}for i in dataframe.columns],
             id=table_id,
@@ -76,6 +76,6 @@ def build_table(dataframe, render_conditional, table_id):
                         },
                     'text-align': 'right',
                 }
-            ])]
+            ])
 
     return table

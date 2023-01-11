@@ -288,12 +288,12 @@ def update_data_base(n_clicks, up_date,check_yesterday):
         df_total2['Date'] = pd.to_datetime(df_total2['Date'], errors='coerce')
         df_total2=df_total2.drop(['RSI'],axis=1)
         df_total2=df_total2.groupby([df_total2['Date'].dt.date])['Stock'].count()
-        print(df_total.index)
-        print(df_total2.index)
+        #print(df_total.index)
+        #print(df_total2.index)
         tmp_dc={"Date":list(df_total.index),"Stocks":list(df_total)}
         tmp_dc2={"Date":list(df_total2.index),"Stocks":list(df_total2)}
-        print(tmp_dc)
-        print(tmp_dc2)
+        #print(tmp_dc)
+        #print(tmp_dc2)
         tmp_d1=pd.DataFrame.from_dict(tmp_dc)
         tmp_d2=pd.DataFrame.from_dict(tmp_dc2)
         tmp_d1['%Universe >= 68']=(tmp_d1['Stocks']/(len(companies)-3))*100

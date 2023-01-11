@@ -469,8 +469,8 @@ def rsi(comp, options, up_date, chy):
     df.insert(0,'Date',first_column)
     df['Date']=dates
     df['D%Change'] = df['Price'].pct_change()*100
-    print(df[df['Date']>'2023-01-01'])
-    df['YTD%Change'] = df[df['Date']>'2023-01-01']['Price'].transform(lambda x: x/x.iloc[0]-1.0)*100
+    #print(df[df['Date']>'2023-01-01'])
+    df['YTD%Change'] = df[df['Date']>='2023-01-01']['Price'].transform(lambda x: x/x.iloc[0]-1.0)*100
     df['Year'] = df['Date'].apply(lambda x : x.year)
     df['Date']=df.index
     df = df.reindex(index=df.index[::-1])

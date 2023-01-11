@@ -30,6 +30,7 @@ RSI_TO_BUY=float(rsi_adjustable['RSI_TO_BUY'][0])
 RSI_TO_SELL=float(rsi_adjustable['RSI_TO_SELL'][0])
 T_SELL = RSI_TO_SELL-5
 T_BUY = RSI_TO_BUY+5
+thresholds_dic={'Count':[],'Stocks':[],'Date':[], 'Threshold':[]}
 companies = []
 click_counter = [0,0,0,0]
 source=pathlib.Path(__file__).parent.resolve()
@@ -54,6 +55,7 @@ def change_dashboard_page(clicks_md, clicks_wl1, clicks_wl2):
         df = filter_by_options(df,[True,True,True])
         wl_df=[]
         for stock in companies:
+            if stock=='GREATEREQ68' or stock == 'LOWEREQ32' or stock=='UNIVERSE': continue
             df_tmp = df[df['Stock']==stock].head(1)
             if len(wl_df)==0:
                 wl_df=df_tmp
@@ -176,12 +178,13 @@ def adjust_rsi(n_clicks, rsell,rbuy):
         T_SELL = RSI_TO_SELL-5
         T_BUY = RSI_TO_BUY+5
         counter = 1
-        size = len(companies)
+        size = len(companies)-3
         tmp_companies=companies+['WATCHLIST','WATCHLIST2']
         df_watchlist=[]
         df_watchlist2=[]
         max_date = None
         for symbol in tmp_companies:
+            if stock=='GREATEREQ68' or stock == 'LOWEREQ32' or stock=='UNIVERSE': continue
             progress=round((counter/size)*100, 2)
             print('{0}% updating {1} data...'.format(str(progress),symbol))
             df=pd.read_csv('{0}/data_base/{1}.csv'.format(source, symbol))
@@ -239,11 +242,14 @@ def update_data_base(n_clicks, up_date,check_yesterday):
         click_counter[2]=n_clicks
         df_watchlist=[]
         df_watchlist2=[]
+        df_total=[]
+        df_total2=[]
         counter=1
-        size=len(companies)
+        size=len(companies)-3
         max_date=None
         print("Value: {}".format(check_yesterday))
         for symbol in companies:
+            if symbol=='GREATEREQ68' or symbol == 'LOWEREQ32' or symbol == 'UNIVERSE': continue
             progress=round((counter/size)*100, 2)
             print('{0}% updating {1} data...'.format(str(progress),symbol))
             df = rsi(symbol,[True,True,True], up_date, check_yesterday)
@@ -265,11 +271,47 @@ def update_data_base(n_clicks, up_date,check_yesterday):
                 print('{0}% updating {1} data...'.format(str(progress),'WATCHLIST'))
                 df_watchlist=pd.concat([df_watchlist,dftmp])
                 df_watchlist2=pd.concat([df_watchlist2,dftmp2])
+            df_tmp3=df[df['RSI']>=68]
+            df_tmp4=df[df['RSI']<=32]
+            df_tmp3=df_tmp3.drop(['Price', 'STATUS', 'D%Change', 'YTD%Change', 'Year'], axis=1)
+            df_tmp4=df_tmp4.drop(['Price', 'STATUS', 'D%Change', 'YTD%Change', 'Year'], axis=1)
+            if len(df_total)==0:
+                df_total=df_tmp3
+                df_total2=df_tmp4
+            else:
+                df_total=pd.concat([df_total,df_tmp3])
+                df_total2=pd.concat([df_total2,df_tmp4])
             counter+=1
+        df_total['Date'] = pd.to_datetime(df_total['Date'], errors='coerce')
+        df_total=df_total.drop(['RSI'],axis=1)
+        df_total=df_total.groupby([df_total['Date'].dt.date])['Stock'].count()
+        df_total2['Date'] = pd.to_datetime(df_total2['Date'], errors='coerce')
+        df_total2=df_total2.drop(['RSI'],axis=1)
+        df_total2=df_total2.groupby([df_total2['Date'].dt.date])['Stock'].count()
+        print(df_total.index)
+        print(df_total2.index)
+        tmp_dc={"Date":list(df_total.index),"Stocks":list(df_total)}
+        tmp_dc2={"Date":list(df_total2.index),"Stocks":list(df_total2)}
+        print(tmp_dc)
+        print(tmp_dc2)
+        tmp_d1=pd.DataFrame.from_dict(tmp_dc)
+        tmp_d2=pd.DataFrame.from_dict(tmp_dc2)
+        tmp_d1['%Universe >= 68']=(tmp_d1['Stocks']/(len(companies)-3))*100
+        tmp_d2['%Universe <= 32']=(tmp_d2['Stocks']/(len(companies)-3))*100
+        tmp_d1=tmp_d1.sort_values(by='Date', ascending=False)
+        tmp_d2=tmp_d2.sort_values(by='Date', ascending=False)
+        universe=pd.merge(tmp_d1,tmp_d2,how='outer',on='Date')
+        universe=universe.sort_values(by='Date', ascending=False)
         df_watchlist = df_watchlist[df_watchlist['Date']==max_date]
         df_watchlist2 = df_watchlist2[df_watchlist2['Date']==max_date]
+
         df_watchlist.to_csv('{0}/data_base/WATCHLIST.csv'.format(source), index=False, float_format='%.2f')
         df_watchlist2.to_csv('{0}/data_base/WATCHLIST2.csv'.format(source), index=False, float_format='%.2f')
+        tmp_d1.to_csv('{0}/data_base/GREATEREQ68.csv'.format(source), index=False, float_format='%.2f')
+        tmp_d2.to_csv('{0}/data_base/LOWEREQ32.csv'.format(source), index=False, float_format='%.2f')
+        universe.to_csv('{0}/data_base/UNIVERSE.csv'.format(source), index=False, float_format='%.2f')
+
+
     return html.Div([])
 
 
@@ -287,6 +329,7 @@ def update_wl2_table(comp):
     df = filter_by_options(df,[True,True,True])
     wl_df = []
     for stock in companies:
+        if stock=='GREATEREQ68' or stock == 'LOWEREQ32' or stock=='UNIVERSE': continue
         df_tmp = df[df['Stock']==stock].head(1)
         if len(wl_df)==0:
             wl_df=df_tmp
@@ -314,6 +357,7 @@ def update_wl1_table(comp):
     df = filter_by_options(df,[True,True,True])
     wl_df = []
     for stock in companies:
+        if stock=='GREATEREQ68' or stock == 'LOWEREQ32' or stock=='UNIVERSE': continue
         df_tmp = df[df['Stock']==stock].head(1)
         if len(wl_df)==0:
             wl_df=df_tmp
@@ -410,6 +454,7 @@ def rsi(comp, options, up_date, chy):
         df = yf.download(comp, start=up_date, end=str(yesterday))
     else:
         df = yf.download(comp, start=up_date)
+    dates=df.index
     df.index = df.index.strftime('%m-%d-%Y')
     df.drop(['High', 'Low', 'Open', 'Volume','Adj Close'], axis=1, inplace=True)
     df = formula1(df)
@@ -422,6 +467,12 @@ def rsi(comp, options, up_date, chy):
     df['Date']=df.index
     first_column = df.pop('Date')
     df.insert(0,'Date',first_column)
+    df['Date']=dates
+    df['D%Change'] = df['Price'].pct_change()*100
+    print(df[df['Date']>'2023-01-01'])
+    df['YTD%Change'] = df[df['Date']>'2023-01-01']['Price'].transform(lambda x: x/x.iloc[0]-1.0)*100
+    df['Year'] = df['Date'].apply(lambda x : x.year)
+    df['Date']=df.index
     df = df.reindex(index=df.index[::-1])
     return df
 
@@ -432,7 +483,7 @@ def render_modal_remove():
             [
                 dbc.ModalHeader(dbc.ModalTitle("Delete Stock")),
                 dbc.ModalBody(
-                    render_dropdown_menu(companies,'remove-dropdown-menu',""),
+                    render_dropdown_menu(companies,'remove-dropdown-menu',"AA"),
                 ),
                 dbc.ModalFooter([
                     dbc.Button(
@@ -764,6 +815,7 @@ def render_wl2_table(df):
 
 def render_dropdown_menu(options, menuId, defaultVal):
     global RSI_TO_SELL, RSI_TO_BUY, T_BUY, T_SELL
+    print(options)
     return dbc.Row([dcc.Dropdown(
                             id=menuId,
                             options=[                             
@@ -797,6 +849,7 @@ def render_options_checklist(id_opts):
 
 def main_dashboard_header():
     global RSI_TO_SELL, RSI_TO_BUY, T_BUY, T_SELL
+
     return [   dbc.Col([
                     html.Div(id='fakeOutput'),
                     html.Div(id='fakeOutputAdjust'),

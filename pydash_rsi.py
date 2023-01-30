@@ -3,6 +3,8 @@ import dash
 from dash import Dash, dash_table, Input, Output, State
 from dash import dcc
 from dash import html
+from dash import callback_context
+from datetime import datetime
 import dash_bootstrap_components as dbc
 import pandas_datareader as pdr
 import yfinance as yf
@@ -55,7 +57,7 @@ def change_dashboard_page(clicks_md, clicks_wl1, clicks_wl2):
         df = filter_by_options(df,[True,True,True])
         wl_df=[]
         for stock in companies:
-            if stock=='GREATEREQ68' or stock == 'LOWEREQ32' or stock=='UNIVERSE': continue
+            if stock=='GREATEREQ' or stock == 'LOWEREQ' or stock=='UNIVERSE': continue
             df_tmp = df[df['Stock']==stock].head(1)
             if len(wl_df)==0:
                 wl_df=df_tmp
@@ -178,13 +180,13 @@ def adjust_rsi(n_clicks, rsell,rbuy):
         T_SELL = RSI_TO_SELL-5
         T_BUY = RSI_TO_BUY+5
         counter = 1
-        size = len(companies)-3
+        size = len(companies)
         tmp_companies=companies+['WATCHLIST','WATCHLIST2']
         df_watchlist=[]
         df_watchlist2=[]
         max_date = None
         for symbol in tmp_companies:
-            if stock=='GREATEREQ68' or stock == 'LOWEREQ32' or stock=='UNIVERSE': continue
+            if stock=='GREATEREQ' or stock == 'LOWEREQ' or stock=='UNIVERSE': continue
             progress=round((counter/size)*100, 2)
             print('{0}% updating {1} data...'.format(str(progress),symbol))
             df=pd.read_csv('{0}/data_base/{1}.csv'.format(source, symbol))
@@ -244,12 +246,13 @@ def update_data_base(n_clicks, up_date,check_yesterday):
         df_watchlist2=[]
         df_total=[]
         df_total2=[]
+        df_total3=[]
         counter=1
-        size=len(companies)-3
+        size=len(companies)
         max_date=None
         print("Value: {}".format(check_yesterday))
         for symbol in companies:
-            if symbol=='GREATEREQ68' or symbol == 'LOWEREQ32' or symbol == 'UNIVERSE': continue
+            if symbol=='GREATEREQ' or symbol == 'LOWEREQ' or symbol == 'UNIVERSE': continue
             progress=round((counter/size)*100, 2)
             print('{0}% updating {1} data...'.format(str(progress),symbol))
             df = rsi(symbol,[True,True,True], up_date, check_yesterday)
@@ -271,16 +274,20 @@ def update_data_base(n_clicks, up_date,check_yesterday):
                 print('{0}% updating {1} data...'.format(str(progress),'WATCHLIST'))
                 df_watchlist=pd.concat([df_watchlist,dftmp])
                 df_watchlist2=pd.concat([df_watchlist2,dftmp2])
-            df_tmp3=df[df['RSI']>=68]
-            df_tmp4=df[df['RSI']<=32]
-            df_tmp3=df_tmp3.drop(['Price', 'STATUS', 'D%Change', 'YTD%Change', 'Year'], axis=1)
-            df_tmp4=df_tmp4.drop(['Price', 'STATUS', 'D%Change', 'YTD%Change', 'Year'], axis=1)
+            df_tmp3=df[df['RSI']>=69]
+            df_tmp4=df[df['RSI']<=31]
+            df_tmp5=df[(df['RSI']<69) & (df['RSI']>31)]
+            df_tmp3=df_tmp3.drop(['Price', 'STATUS', 'D%Change', 'YTD%Change'], axis=1)
+            df_tmp4=df_tmp4.drop(['Price', 'STATUS', 'D%Change', 'YTD%Change'], axis=1)
+            df_tmp5=df_tmp5.drop(['Price', 'STATUS', 'D%Change', 'YTD%Change'], axis=1)
             if len(df_total)==0:
                 df_total=df_tmp3
                 df_total2=df_tmp4
+                df_total3=df_tmp5
             else:
                 df_total=pd.concat([df_total,df_tmp3])
                 df_total2=pd.concat([df_total2,df_tmp4])
+                df_total3=pd.concat([df_total3,df_tmp5])
             counter+=1
         df_total['Date'] = pd.to_datetime(df_total['Date'], errors='coerce')
         df_total=df_total.drop(['RSI'],axis=1)
@@ -288,27 +295,36 @@ def update_data_base(n_clicks, up_date,check_yesterday):
         df_total2['Date'] = pd.to_datetime(df_total2['Date'], errors='coerce')
         df_total2=df_total2.drop(['RSI'],axis=1)
         df_total2=df_total2.groupby([df_total2['Date'].dt.date])['Stock'].count()
+        df_total3['Date'] = pd.to_datetime(df_total3['Date'], errors='coerce')
+        df_total3=df_total3.drop(['RSI'],axis=1)
+        df_total3=df_total3.groupby([df_total3['Date'].dt.date])['Stock'].count()
         #print(df_total.index)
         #print(df_total2.index)
         tmp_dc={"Date":list(df_total.index),"Stocks":list(df_total)}
         tmp_dc2={"Date":list(df_total2.index),"Stocks":list(df_total2)}
+        tmp_dc3={"Date":list(df_total3.index),"Stocks":list(df_total3)}
         #print(tmp_dc)
         #print(tmp_dc2)
         tmp_d1=pd.DataFrame.from_dict(tmp_dc)
         tmp_d2=pd.DataFrame.from_dict(tmp_dc2)
-        tmp_d1['%Universe >= 68']=(tmp_d1['Stocks']/(len(companies)-3))*100
-        tmp_d2['%Universe <= 32']=(tmp_d2['Stocks']/(len(companies)-3))*100
+        tmp_d3=pd.DataFrame.from_dict(tmp_dc3)
+        tmp_d1['%Universe >= 69']=(tmp_d1['Stocks']/(len(companies)))*100
+        tmp_d2['%Universe <= 31']=(tmp_d2['Stocks']/(len(companies)))*100
+        tmp_d3['%Universe HOLD']=(tmp_d3['Stocks']/(len(companies)))*100
         tmp_d1=tmp_d1.sort_values(by='Date', ascending=False)
         tmp_d2=tmp_d2.sort_values(by='Date', ascending=False)
-        universe=pd.merge(tmp_d1,tmp_d2,how='outer',on='Date')
+        tmp_d3=tmp_d3.sort_values(by='Date', ascending=False)
+        universe=pd.merge(tmp_d1,tmp_d3,how='outer',on='Date')
+        universe=pd.merge(universe,tmp_d2,how='outer',on='Date')
         universe=universe.sort_values(by='Date', ascending=False)
+        universe=universe.drop(['Stocks_x','Stocks_y','Stocks'],axis=1)
         df_watchlist = df_watchlist[df_watchlist['Date']==max_date]
         df_watchlist2 = df_watchlist2[df_watchlist2['Date']==max_date]
 
         df_watchlist.to_csv('{0}/data_base/WATCHLIST.csv'.format(source), index=False, float_format='%.2f')
         df_watchlist2.to_csv('{0}/data_base/WATCHLIST2.csv'.format(source), index=False, float_format='%.2f')
-        tmp_d1.to_csv('{0}/data_base/GREATEREQ68.csv'.format(source), index=False, float_format='%.2f')
-        tmp_d2.to_csv('{0}/data_base/LOWEREQ32.csv'.format(source), index=False, float_format='%.2f')
+        tmp_d1.to_csv('{0}/data_base/GREATEREQ.csv'.format(source), index=False, float_format='%.2f')
+        tmp_d2.to_csv('{0}/data_base/LOWEREQ.csv'.format(source), index=False, float_format='%.2f')
         universe.to_csv('{0}/data_base/UNIVERSE.csv'.format(source), index=False, float_format='%.2f')
 
 
@@ -329,7 +345,7 @@ def update_wl2_table(comp):
     df = filter_by_options(df,[True,True,True])
     wl_df = []
     for stock in companies:
-        if stock=='GREATEREQ68' or stock == 'LOWEREQ32' or stock=='UNIVERSE': continue
+        if stock=='GREATEREQ' or stock == 'LOWEREQ' or stock=='UNIVERSE': continue
         df_tmp = df[df['Stock']==stock].head(1)
         if len(wl_df)==0:
             wl_df=df_tmp
@@ -357,7 +373,7 @@ def update_wl1_table(comp):
     df = filter_by_options(df,[True,True,True])
     wl_df = []
     for stock in companies:
-        if stock=='GREATEREQ68' or stock == 'LOWEREQ32' or stock=='UNIVERSE': continue
+        if stock=='GREATEREQ' or stock == 'LOWEREQ' or stock=='UNIVERSE': continue
         df_tmp = df[df['Stock']==stock].head(1)
         if len(wl_df)==0:
             wl_df=df_tmp
@@ -371,27 +387,38 @@ def update_wl1_table(comp):
             {"name": i, "id": i}for i in df.columns]
     return rsi_records_data, rsi_values_columns, comp
 
-
-
 @app.callback(
-    [Output("rsi_Table","data"), Output("rsi_Table","columns"), Output('title_T','children')],
+    [Output("rsi_Table","data"), Output("rsi_Table","columns"), Output('title_T','children'),Output('company-filter','value'),Output('action-filter','value')],
     [
         Input("company-filter", "value"),
+        Input("action-filter","value"),
         Input('options-checkbox','value')
     ]
 )
-def update_table(comp, options):
+def update_table(comp, act, options):
     global RSI_TO_SELL, RSI_TO_BUY, T_BUY, T_SELL
-    outops = [False for i in range(3)]
-    for o in options:
-        outops[o-1] = True
-    source=pathlib.Path(__file__).parent.resolve()
-    df=pd.read_csv('{0}/data_base/{1}.csv'.format(source, comp))
-    df = filter_by_options(df,outops)
-    rsi_records_data=df.to_dict('records')
-    rsi_values_columns=[{"name": i, "id": i,'type':'numeric', 'format':Format(precision=2,scheme=Scheme.fixed)} if i =='RSI' or i=='Price' else 
-            {"name": i, "id": i}for i in df.columns]
-    return rsi_records_data, rsi_values_columns, comp
+    ctx=callback_context
+    input_id= ctx.triggered[0]['prop_id'].split(".")[0]
+    print(ctx.triggered)
+    print(ctx.triggered[0]['prop_id'].split("."))
+    if input_id=='company-filter' or input_id=="options-checkbox":
+        outops = [False for i in range(3)]
+        for o in options:
+            outops[o-1] = True
+        source=pathlib.Path(__file__).parent.resolve()
+        df=pd.read_csv('{0}/data_base/{1}.csv'.format(source, comp))
+        df = filter_by_options(df,outops)
+        rsi_records_data=df.to_dict('records')
+        rsi_values_columns=[{"name": i, "id": i,'type':'numeric', 'format':Format(precision=2,scheme=Scheme.fixed)} if i =='RSI' or i=='Price' else 
+                {"name": i, "id": i}for i in df.columns]
+        return rsi_records_data, rsi_values_columns, comp, comp, None
+    else:
+        source=pathlib.Path(__file__).parent.resolve()
+        df=pd.read_csv('{0}/data_base/{1}.csv'.format(source, act))
+        rsi_records_data=df.to_dict('records')
+        rsi_values_columns=[{"name": i, "id": i,'type':'numeric', 'format':Format(precision=2,scheme=Scheme.fixed)} if i =='RSI' or i=='Price' else 
+                {"name": i, "id": i}for i in df.columns]
+        return rsi_records_data, rsi_values_columns, act, None, act
 
 @app.callback(
     Output('update-modal','is_open'),
@@ -474,6 +501,19 @@ def rsi(comp, options, up_date, chy):
     df['Year'] = df['Date'].apply(lambda x : x.year)
     df['Date']=df.index
     df = df.reindex(index=df.index[::-1])
+    current_y=max(df['Year'].values)
+    print(current_y)
+    previous_year_prices=df[df['Year']==current_y-1]['Price'].values[::-1]
+    current_year_prices=df[df['Year']==current_y]['Price'].values[::-1]
+    n=len(current_year_prices)
+    print(previous_year_prices[:n])
+    print(current_year_prices)
+    new_col_values=list(((current_year_prices-previous_year_prices[:n])/previous_year_prices[:n])*100)
+    new_col_values=new_col_values[::-1]
+    for i in range(len(df['Date'].values)-n):
+        new_col_values.append(0)
+    df['Y%Change']=new_col_values
+    df=df.drop('Year',axis=1)
     return df
 
 def render_modal_remove():
@@ -483,7 +523,7 @@ def render_modal_remove():
             [
                 dbc.ModalHeader(dbc.ModalTitle("Delete Stock")),
                 dbc.ModalBody(
-                    render_dropdown_menu(companies,'remove-dropdown-menu',"AA"),
+                    render_dropdown_menu(companies,'remove-dropdown-menu',"AA", "Stocks"),
                 ),
                 dbc.ModalFooter([
                     dbc.Button(
@@ -813,7 +853,7 @@ def render_wl2_table(df):
                 }
             ])]
 
-def render_dropdown_menu(options, menuId, defaultVal):
+def render_dropdown_menu(options, menuId, defaultVal,ph):
     global RSI_TO_SELL, RSI_TO_BUY, T_BUY, T_SELL
     print(options)
     return dbc.Row([dcc.Dropdown(
@@ -823,6 +863,7 @@ def render_dropdown_menu(options, menuId, defaultVal):
                                 for stock in options
                             ],
                             value=defaultVal,
+                            placeholder=ph,
                             clearable=False,
                             className="dropdown",
                             ),
@@ -881,7 +922,8 @@ def main_dashboard_header():
                     html.Div(children=[
                     dbc.Row([
                     dbc.Col(html.Div(children="Company")),
-                    dbc.Col(render_dropdown_menu(companies, "company-filter", "AA")),
+                    dbc.Col(render_dropdown_menu(companies, "company-filter", "AA", "Stocks")),
+                    dbc.Col(render_dropdown_menu(['UNIVERSE','GREATEREQ','LOWEREQ'], "action-filter", None, "Actions")),
                     dbc.Col(render_options_checklist("options-checkbox"))
                     ])
                     ]))
@@ -909,7 +951,7 @@ def watchlist1_dashboard():
                     html.Div(children=[
                     dbc.Row([
                     dbc.Col(html.Div(children="Company")),
-                    dbc.Col(render_dropdown_menu(['WATCHLIST']+companies, "wl1_company-filter", "WATCHLIST"))
+                    dbc.Col(render_dropdown_menu(['WATCHLIST']+companies, "wl1_company-filter", "WATCHLIST", "Stocks"))
                     ])
                     ]))
             ]
@@ -936,7 +978,7 @@ def watchlist2_dashboard():
                     html.Div(children=[
                     dbc.Row([
                     dbc.Col(html.Div(children="Company")),
-                    dbc.Col(render_dropdown_menu(['WATCHLIST2']+companies, "wl2_company-filter","WATCHLIST2"))
+                    dbc.Col(render_dropdown_menu(['WATCHLIST2']+companies, "wl2_company-filter","WATCHLIST2", "Stocks"))
                     ])
                     ]))
             ]        

@@ -16,6 +16,7 @@ from assets.ui_modules.module_navbar import build_navbar as navbar
 from assets.ui_modules.module_dropdown import build_dropdown as dropdown_menu
 from assets.ui_modules.module_table import build_table as table
 from assets.ui_modules.module_linebar import build_linebar as linebar
+from assets.ui_modules.module_action_button import build_action_button as action_button
 
 
 yf.pdr_override()
@@ -36,8 +37,6 @@ app=dash.Dash(__name__, suppress_callback_exceptions=True,external_stylesheets=[
 )
 def update_selected_symbol(symbol, state):
     if state:
-        start=datetime.datetime(2016,1,1)
-        end=datetime.date.today() 
         return [
         [
         dbc.Col(table(dh.get_dataframe(symbol),dh.get_table_conditional(),"rsi_table")),
@@ -53,7 +52,13 @@ def update_selected_symbol(symbol, state):
 def main():
     print(linebar(pd.DataFrame(),"","","","stock_linebar"))
     app.layout= html.Div([
-        navbar(app.get_asset_url("images/aa.png"),"MAIN","current_symbol"),
+        navbar(app.get_asset_url("images/aa.png"),"MAIN","current_symbol", 
+        dbc.Col([
+            action_button("ADD", "secondary", "me-1"),
+            action_button("REMOVE", "secondary", "me-1"),
+            action_button("UPDATE", "secondary", "me-1"),
+            action_button("ADJUST", "secondary", "me-1"),]
+            )),
         dropdown_menu(symbols, 'symbols_dropdown'),
         dbc.Row([], id="rsi_cointainer")
     ])

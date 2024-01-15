@@ -234,12 +234,14 @@ def toggle_modal_adjust(open_modal,close_modal,adj_modal, is_open):
 
 
 @app.callback(
-Output('fakeOutput', 'children'),
+[Output('fakeOutput', 'children'),Output('state-modal','is_open'),Output('errorup-modal','is_open')],
 Input('update-data','n_clicks'), Input('update-date-picker', 'date'), Input('check-yesterday','value')
 )
 def update_data_base(n_clicks, up_date,check_yesterday):
     global RSI_TO_SELL, RSI_TO_BUY, T_BUY, T_SELL, companies
     print(date)
+    is_open_ok=False
+    is_open_err=False
     if n_clicks>click_counter[2]:
         click_counter[2]=n_clicks
         df_watchlist=[]
@@ -254,18 +256,25 @@ def update_data_base(n_clicks, up_date,check_yesterday):
         for symbol in companies:
             if symbol=='GREATEREQ' or symbol == 'LOWEREQ' or symbol == 'UNIVERSE': continue
             progress=round((counter/size)*100, 2)
+            is_open_err= progress!=100
             print('{0}% updating {1} data...'.format(str(progress),symbol))
             df = rsi(symbol,[True,True,True], up_date, check_yesterday)
-            if max_date == None:
-                max_date=df['Date'].head(1)[0]
-            else:
-                max_date = max(max_date,df['Date'].head(1)[0])
+            try:
+                if max_date == None:
+                    max_date=df['Date'].head(1)[0]
+                else:
+                    max_date = max(max_date,df['Date'].head(1)[0])
+            except Exception:
+                is_open_err= progress!=100
+                return html.Div([]), not is_open_err, is_open_err
+            
             print(max_date)
             source=pathlib.Path(__file__).parent.resolve()
             df.to_csv('{0}/data_base/{1}.csv'.format(source, symbol), index=False, float_format='%.2f')
             df['Stock'] = symbol
-            dftmp = df[(df['RSI'] <= T_BUY) & (df['RSI']>=RSI_TO_BUY) | ((df['RSI']<=RSI_TO_SELL) & (df['RSI']>=T_SELL))]
-            dftmp2 = df[df['STATUS']!='HOLD']
+            dfdt=df[df['Date']==df['Date'].head(1)[0]]
+            dftmp = dfdt[(dfdt['RSI'] <= T_BUY) & (dfdt['RSI']>=RSI_TO_BUY) | ((dfdt['RSI']<=RSI_TO_SELL) & (dfdt['RSI']>=T_SELL))]
+            dftmp2 = dfdt[dfdt['STATUS']!='HOLD']
             if len(df_watchlist) == 0:
                 print('{0}% updating {1} data...'.format(str(progress),'WATCHLIST'))
                 df_watchlist = dftmp
@@ -318,9 +327,10 @@ def update_data_base(n_clicks, up_date,check_yesterday):
         universe=pd.merge(universe,tmp_d2,how='outer',on='Date')
         universe=universe.sort_values(by='Date', ascending=False)
         universe=universe.drop(['Stocks_x','Stocks_y','Stocks'],axis=1)
-        df_watchlist = df_watchlist[df_watchlist['Date']==max_date]
-        df_watchlist2 = df_watchlist2[df_watchlist2['Date']==max_date]
-
+        print("MÁXIMA FECHA CALCULADA!!!:",max_date)
+        #df_watchlist = df_watchlist[df_watchlist['Date']==max(df_watchlist['Date'])]
+        #df_watchlist2 = df_watchlist2[df_watchlist2['Date']==max(df_watchlist2['Date'])]
+        is_open_ok = progress==100
         df_watchlist.to_csv('{0}/data_base/WATCHLIST.csv'.format(source), index=False, float_format='%.2f')
         df_watchlist2.to_csv('{0}/data_base/WATCHLIST2.csv'.format(source), index=False, float_format='%.2f')
         tmp_d1.to_csv('{0}/data_base/GREATEREQ.csv'.format(source), index=False, float_format='%.2f')
@@ -328,7 +338,7 @@ def update_data_base(n_clicks, up_date,check_yesterday):
         universe.to_csv('{0}/data_base/UNIVERSE.csv'.format(source), index=False, float_format='%.2f')
 
 
-    return html.Div([])
+    return html.Div([]), is_open_ok, is_open_err
 
 
 @app.callback(
@@ -476,44 +486,48 @@ def rsi(comp, options, up_date, chy):
     global RSI_TO_SELL, RSI_TO_BUY, T_BUY, T_SELL
     print(comp, up_date)
     df=None
-    if chy:
-        yesterday=np.datetime64('today','D')
-        df = yf.download(comp, start=up_date, end=str(yesterday))
-    else:
-        df = yf.download(comp, start=up_date)
-    dates=df.index
-    df.index = df.index.strftime('%m-%d-%Y')
-    df.drop(['High', 'Low', 'Open', 'Volume','Adj Close'], axis=1, inplace=True)
-    df = formula1(df)
-    df = df.rename(columns={'Close':'Price'})
-    df.drop(['delta', 'up', 'down'], axis=1, inplace=True)
-    conditions=[df['RSI']<RSI_TO_BUY, df['RSI']>RSI_TO_SELL,(df['RSI']>=RSI_TO_BUY) & (df['RSI']<=RSI_TO_SELL)] 
-    values = ['BUY', 'SELL', 'HOLD'] 
-    df['STATUS'] = np.select(conditions, values)
-    df=filter_by_options(df,options)
-    df['Date']=df.index
-    first_column = df.pop('Date')
-    df.insert(0,'Date',first_column)
-    df['Date']=dates
-    df['D%Change'] = df['Price'].pct_change()*100
-    #print(df[df['Date']>'2023-01-01'])
-    df['YTD%Change'] = df[df['Date']>='2023-01-01']['Price'].transform(lambda x: x/x.iloc[0]-1.0)*100
-    df['Year'] = df['Date'].apply(lambda x : x.year)
-    df['Date']=df.index
-    df = df.reindex(index=df.index[::-1])
-    current_y=max(df['Year'].values)
-    print(current_y)
-    previous_year_prices=df[df['Year']==current_y-1]['Price'].values[::-1]
-    current_year_prices=df[df['Year']==current_y]['Price'].values[::-1]
-    n=len(current_year_prices)
-    print(previous_year_prices[:n])
-    print(current_year_prices)
-    new_col_values=list(((current_year_prices-previous_year_prices[:n])/previous_year_prices[:n])*100)
-    new_col_values=new_col_values[::-1]
-    for i in range(len(df['Date'].values)-n):
-        new_col_values.append(0)
-    df['Y%Change']=new_col_values
-    df=df.drop('Year',axis=1)
+    try:
+        if chy:
+            yesterday=np.datetime64('today','D')
+            df = yf.download(comp, start=up_date, end=str(yesterday))
+        else:
+            df = yf.download(comp, start=up_date)
+        dates=df.index
+        df.index = df.index.strftime('%m-%d-%Y')
+        df.drop(['High', 'Low', 'Open', 'Volume','Adj Close'], axis=1, inplace=True)
+        df = formula1(df)
+        df = df.rename(columns={'Close':'Price'})
+        df.drop(['delta', 'up', 'down'], axis=1, inplace=True)
+        conditions=[df['RSI']<RSI_TO_BUY, df['RSI']>RSI_TO_SELL,(df['RSI']>=RSI_TO_BUY) & (df['RSI']<=RSI_TO_SELL)] 
+        values = ['BUY', 'SELL', 'HOLD'] 
+        df['STATUS'] = np.select(conditions, values)
+        df=filter_by_options(df,options)
+        df['Date']=df.index
+        first_column = df.pop('Date')
+        df.insert(0,'Date',first_column)
+        df['Date']=dates
+        df['D%Change'] = df['Price'].pct_change()*100
+        #print(df[df['Date']>'2023-01-01'])
+        df['YTD%Change'] = df[df['Date']>='2023-01-01']['Price'].transform(lambda x: x/x.iloc[0]-1.0)*100
+        df['Year'] = df['Date'].apply(lambda x : x.year)
+        df['Date']=df.index
+        df = df.reindex(index=df.index[::-1])
+        current_y=max(df['Year'].values)
+        print(current_y)
+        previous_year_prices=df[df['Year']==current_y-1]['Price'].values[::-1]
+        current_year_prices=df[df['Year']==current_y]['Price'].values[::-1]
+        n=len(current_year_prices)
+        print(previous_year_prices[:n])
+        print(current_year_prices)
+        new_col_values=list(((current_year_prices-previous_year_prices[:n])/previous_year_prices[:n])*100)
+        new_col_values=new_col_values[::-1]
+        for i in range(len(df['Date'].values)-n):
+            new_col_values.append(0)
+        df['Y%Change']=new_col_values
+        df=df.drop('Year',axis=1)
+    except Exception as e:
+            print(f'Error es:{e}')
+            print(str(e)=='\'Index\' object has no attribute \'strftime\'')
     return df
 
 def render_modal_remove():
@@ -627,6 +641,30 @@ def render_modal_update():
             ]),
             ],
             id="update-modal",
+            is_open=False,
+        ),])
+
+def render_state_update():
+    global RSI_TO_SELL, RSI_TO_BUY, T_BUY, T_SELL
+    return html.Div(
+    [dbc.Modal(
+            [
+                dbc.ModalHeader(dbc.ModalTitle("Update Finished")),
+                dbc.ModalBody("Every table updated correctly!")
+            ],
+            id="state-modal",
+            is_open=False,
+        ),])
+
+def render_error_update():
+    global RSI_TO_SELL, RSI_TO_BUY, T_BUY, T_SELL
+    return html.Div(
+    [dbc.Modal(
+            [
+                dbc.ModalHeader(dbc.ModalTitle("Update Finished")),
+                dbc.ModalBody("Something went wrong! Please checkout console to see further infortmation.")
+            ],
+            id="errorup-modal",
             is_open=False,
         ),])
 
@@ -1013,7 +1051,9 @@ def main():
                 render_modal_update(),
                 render_modal_adjust(),
                 render_modal_add(),
-                render_modal_remove()
+                render_modal_remove(),
+                render_state_update(),
+                render_error_update()
             ])
             
         ]
